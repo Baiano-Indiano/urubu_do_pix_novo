@@ -70,7 +70,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _emailController.text = dados['email'] ?? '';
       }
     }
-    // Carrega e mantém local (caso queira fallback offline)
     _emailController.text = prefs.getString('profile_email') ?? '';
     _fotoPath = prefs.getString('profile_foto');
     _isLoading = false;
@@ -86,6 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final email = _emailController.text.trim();
     final telefone = _telefoneController.text.trim();
     bool hasError = false;
+    
     if (nome.isEmpty) {
       _nomeError = 'O nome é obrigatório.';
       hasError = true;
@@ -93,28 +93,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _nomeError = 'Nome inválido (apenas letras e espaços, mínimo 3 letras).';
       hasError = true;
     }
+    
     if (!isValidEmail(email)) {
       // Apenas valida o formato, mas não impede a atualização
       // já que o e-mail não pode ser alterado
     }
+    
     if (!isValidPhoneBR(telefone)) {
       _telefoneError = 'Telefone inválido (use DDD, ex: 11999999999).';
       hasError = true;
     }
+    
     setState(() {});
     if (hasError) return;
+    
     try {
-      // Atualiza localmente
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('profile_nome', nome);
       await prefs.setString('profile_email', email);
       await prefs.setString('profile_telefone', telefone);
       if (_fotoPath != null) await prefs.setString('profile_foto', _fotoPath!);
-      // Atualiza no backend Supabase
+      
       final userId = ApiService().usuarioAtual;
       if (userId != null) {
         await ApiService().updateUserProfile(userId: userId, nome: nome, telefone: telefone, foto: _fotoUrl);
       }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Perfil salvo com sucesso!')),
@@ -128,8 +132,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-
-
 
   @override
   void dispose() {
@@ -157,26 +159,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _fotoUrl = url;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Foto atualizada!')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Foto atualizada!')),
+          );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao enviar foto: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao enviar foto: $e')),
+        );
       }
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  // Método para alternar entre modo de visualização e edição
   void _toggleEditMode() {
     setState(() {
       _isEditing = !_isEditing;
     });
   }
 
-  // Método para construir uma linha de informação não editável
   Widget _buildInfoRow(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,7 +204,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Método para construir uma linha de informação editável
   Widget _buildEditableInfoRow(
     BuildContext context,
     String label,
@@ -490,9 +493,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-          ],
-        ),
-      ),
+                ],
+              ),
+            ),
     );
   }
 }

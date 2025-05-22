@@ -206,11 +206,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       await SharePlus.instance.share(ShareParams(
           text: csvBuffer.toString(), subject: 'Exportação CSV - Urubu Pix'));
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao exportar: $e')),
-        );
-      }
+      if (!mounted) return;
+      if (!context.mounted) return;
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      if (!context.mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Erro ao exportar: $e')),
+      );
     }
   }
 
@@ -221,13 +223,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final path = '${directory.path}/historico_pix.pdf';
       final file = File(path);
       await file.writeAsBytes(pdfData, flush: true);
-      await Share.shareXFiles([XFile(path)], text: 'Histórico de transferências (PDF)');
+      await SharePlus.instance.share(ShareParams(
+          text: 'Histórico de transferências (PDF)',
+          files: [XFile(path)]));
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao exportar PDF: $e')),
-        );
-      }
+      if (!mounted) return;
+      if (!context.mounted) return;
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      if (!context.mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Erro ao exportar PDF: $e')),
+      );
     }
   }
 

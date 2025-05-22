@@ -1,13 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:urubu_pix/utils/csv_utils.dart';
 import 'package:urubu_pix/utils/pdf_utils.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'package:fl_chart/fl_chart.dart';
+import 'dashboard_content.dart';
 
 class DashboardScreen extends StatefulWidget {
   final double saldo;
@@ -286,9 +287,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double totalEnviado =
-        widget.historico.fold(0.0, (sum, item) => sum + (item['valor'] ?? 0.0));
-    int qtdTransf = widget.historico.length;
+    final totalEnviado = widget.historico.fold(
+        0.0, (sum, item) => sum + (item['valor'] ?? 0.0));
+    final qtdTransf = widget.historico.length;
+    final historicoFiltrado = _historicoFiltrado;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -299,6 +302,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: () async {
               await showModalBottomSheet(
                 context: context,
+                isScrollControlled: true,
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                 ),
@@ -311,259 +315,107 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.download, color: Colors.blue),
             tooltip: 'Exportar CSV',
             onPressed: () async {
-              final csv = CsvUtils.toCsv(_historicoFiltrado);
+              final csv = CsvUtils.toCsv(historicoFiltrado);
               await SharePlus.instance.share(ShareParams(
-                  text: csv, subject: 'Exportação CSV - Urubu Pix'));
+                text: csv,
+                subject: 'Exportação CSV - Urubu Pix',
+              ));
             },
           ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf, color: Colors.red),
             tooltip: 'Exportar PDF',
             onPressed: () async {
-              final pdfBytes = await PdfUtils.toPdf(_historicoFiltrado);
-              final tempDir = await getTemporaryDirectory();
-              final file = await File('${tempDir.path}/widget.historico_urubupix.pdf').writeAsBytes(pdfBytes);
-              await SharePlus.instance.share(ShareParams(
-                files: [XFile(file.path)],
-                subject: 'Exportação PDF - Urubu Pix',
-              ));
+              try {
+                final pdfBytes = await PdfUtils.toPdf(historicoFiltrado);
+                final tempDir = await getTemporaryDirectory();
+                final file = await File(
+                        '${tempDir.path}/historico_urubupix_${DateTime.now().millisecondsSinceEpoch}.pdf')
+                    .writeAsBytes(pdfBytes);
+                if (!mounted) return;
+                await SharePlus.instance.share(ShareParams(
+                  files: [XFile(file.path)],
+                  subject: 'Exportação PDF - Urubu Pix',
+                ));
+              } catch (e) {
+                if (!mounted) return;
+                if (!context.mounted) return;
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                if (!context.mounted) return;
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(content: Text('Erro ao gerar PDF: $e')),
+                );
+              }
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Saldo atual:', style: TextStyle(fontSize: 16)),
-              Text(
-                  NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$')
-                      .format(widget.saldo),
-                  style:
-                      const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 24),
-              const Text('Total transferido:', style: TextStyle(fontSize: 16)),
-              Text(
-                  NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$')
-                      .format(totalEnviado),
-                  style: const TextStyle(fontSize: 22)),
-              const SizedBox(height: 24),
-              const Text('Quantidade de transferências:',
-                  style: TextStyle(fontSize: 16)),
-              Text(qtdTransf.toString(), style: const TextStyle(fontSize: 22)),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Resumo financeiro:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  DropdownButton<String>(
-                    value: _tipoGrafico,
-                    items: _tiposGraficos.map((tipo) => DropdownMenuItem(
-                      value: tipo,
-                      child: Text(tipo),
-                    )).toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _tipoGrafico = val);
-                    },
-                  ),
-                ],
-              ),
-              // Gráficos customizáveis
-              if (_graficosVisiveis[_tipoGrafico] ?? true)
-                SizedBox(
-                  height: 200,
-                  child: _buildGrafico(),
-                ),
-              const SizedBox(height: 32),
-              if (_mostrarTransferencias) ...[
-                const Text('Últimas transferências:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 220,
-                        child: TextField(
-                          decoration: const InputDecoration(
-                            labelText: 'Buscar destinatário',
-                            prefixIcon: Icon(Icons.search),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _filtroDestinatario = value;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 130,
-                        child: DropdownButton<String>(
-                          value: _filtroTipo,
-                          hint: const Text('Tipo'),
-                          items: ['Todos', 'Enviado', 'Recebido'].map((tipo) => DropdownMenuItem(
-                            value: tipo,
-                            child: Text(tipo),
-                          )).toList(),
-                          onChanged: (tipo) {
-                            setState(() {
-                              _filtroTipo = tipo ?? 'Todos';
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 130,
-                        child: TextField(
-                          controller: _dataInicioController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Data início',
-                            prefixIcon: Icon(Icons.date_range),
-                          ),
-                          onTap: () async {
-                            DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.now(),
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now(),
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                _filtroDataInicio = picked;
-                                _dataInicioController.text = _formatarData(picked);
-                                _validarFiltroData();
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 130,
-                        child: TextField(
-                          controller: _dataFimController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Data fim',
-                            prefixIcon: Icon(Icons.date_range),
-                          ),
-                          onTap: () async {
-                            DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.now(),
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now(),
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                _filtroDataFim = picked;
-                                _dataFimController.text = _formatarData(picked);
-                                _validarFiltroData();
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 120,
-                        child: TextField(
-                          controller: _valorMinController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Valor mínimo',
-                            prefixIcon: Icon(Icons.attach_money),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _filtroValorMin = double.tryParse(value);
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 120,
-                        child: TextField(
-                          controller: _valorMaxController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Valor máximo',
-                            prefixIcon: Icon(Icons.attach_money),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              _filtroValorMax = double.tryParse(value);
-                            });
-                          },
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.clear),
-                        tooltip: 'Limpar filtros',
-                        onPressed: _limparFiltros,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_erroFiltroData != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Text(_erroFiltroData!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                  ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _itensExibidos < _historicoFiltrado.length
-                        ? _itensExibidos + 1
-                        : _historicoFiltrado.length,
-                    itemBuilder: (context, index) {
-                      if (index < _itensExibidos && index < _historicoFiltrado.length) {
-                        final item = _historicoFiltrado[index];
-                        final destinatario = item['destinatario']?.toString() ?? 'Desconhecido';
-                        final valor = (item['valor'] as num?)?.toDouble() ?? 0.0;
-                        final data = item['data'] is DateTime ? item['data'] as DateTime : DateTime.now();
-
-                        return ListTile(
-                          leading: const Icon(Icons.swap_horiz),
-                          title: Text('Para: $destinatario'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Valor: R\$ ${valor.toStringAsFixed(2)}'),
-                              Text('Data: ${_formatarData(data)}'),
-                            ],
-                          ),
-                        );
-                      } else if (_carregandoMais) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      } else {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16.0),
-                          child: Center(child: Text('Não há mais itens para carregar')),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ]),
-          ),
-    )
+      body: DashboardContent(
+        saldo: widget.saldo,
+        totalEnviado: totalEnviado,
+        qtdTransf: qtdTransf,
+        tipoGrafico: _tipoGrafico,
+        tiposGraficos: _tiposGraficos,
+        onGraficoChanged: (val) {
+          if (val != null) setState(() => _tipoGrafico = val);
+        },
+        graficoWidget: _buildGrafico(),
+        filtrosWidget: FiltrosWidget(
+          filtroDestinatario: _filtroDestinatario,
+          filtroTipo: _filtroTipo,
+          filtroDataInicio: _filtroDataInicio,
+          filtroDataFim: _filtroDataFim,
+          filtroValorMin: _filtroValorMin,
+          filtroValorMax: _filtroValorMax,
+          erroFiltroData: _erroFiltroData,
+          onDestinatarioChanged: (value) => setState(() => _filtroDestinatario = value),
+          onTipoChanged: (tipo) => setState(() => _filtroTipo = tipo ?? 'Todos'),
+          onLimparFiltros: _limparFiltros,
+          onDataInicioPressed: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _filtroDataInicio ?? DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime.now(),
+            );
+            if (picked != null) {
+              setState(() {
+                _filtroDataInicio = picked;
+                _validarFiltroData();
+              });
+            }
+          },
+          onDataFimPressed: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _filtroDataFim ?? DateTime.now(),
+              firstDate: DateTime(2020),
+              lastDate: DateTime.now(),
+            );
+            if (picked != null) {
+              setState(() {
+                _filtroDataFim = picked;
+                _validarFiltroData();
+              });
+            }
+          },
+          onValorMinChanged: (value) {
+            setState(() => _filtroValorMin = double.tryParse(value));
+          },
+          onValorMaxChanged: (value) {
+            setState(() => _filtroValorMax = double.tryParse(value));
+          },
+        ),
+        listaHistoricoWidget: ListaHistoricoWidget(
+          historicoFiltrado: historicoFiltrado,
+          itensExibidos: _itensExibidos,
+          carregandoMais: _carregandoMais,
+          quandoChegarNoFinal: _carregarMaisItens,
+          formatarData: _formatarData,
+        ),
+        mostrarTransferencias: _mostrarTransferencias,
+      ),
     );
-            
-          
-        
-      
-    
   }
 
   List<double> get valoresPorMes {

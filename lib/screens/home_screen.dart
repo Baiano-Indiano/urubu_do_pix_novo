@@ -4,6 +4,8 @@ import '../services/api_service.dart';
 import '../widgets/saldo_card.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
+import 'cotation_screen.dart';
+import 'transfer_screen.dart';
 import '../services/auth_service.dart';
 import '../main.dart';
 
@@ -200,7 +202,29 @@ class _HomeScreenState extends State<HomeScreen> {
         Expanded(
           child: _buildActionButton(
             text: 'Cotação',
-            onPressed: () => _navigateTo('/cotation'),
+            onPressed: () => Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const CotationScreen(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  const begin = Offset(1.0, 0.0);
+                  const end = Offset.zero;
+                  const curve = Curves.easeInOut;
+                  
+                  var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                  var offsetAnimation = animation.drive(tween);
+                  
+                  return SlideTransition(
+                    position: offsetAnimation,
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 300),
+              ),
+            ),
           ),
         ),
       ],
@@ -245,8 +269,10 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop();
-                _navigateToLogin();
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  _navigateToLogin();
+                }
               },
               child: const Text('OK'),
             ),
@@ -257,28 +283,71 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _navigateToTransfer() async {
-    final result = await Navigator.pushNamed(context, '/transfer');
+    if (!context.mounted) return;
+    final navigator = Navigator.of(context);
+    if (!context.mounted) return;
+    
+    final result = await navigator.push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const TransferScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOut;
+          
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
+          
+          return SlideTransition(
+            position: offsetAnimation,
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+    
+    if (!context.mounted) return;
     await _fetchSaldo(); // Atualiza o saldo após retornar
-    if (result == true && mounted) {
+    if (result == true && context.mounted) {
       _showSuccessSnackbar('Transferência realizada com sucesso!');
     }
   }
 
   void _navigateTo(String route) {
-    Navigator.pop(context); // Fecha o drawer
-    Navigator.pushNamed(context, route);
+    if (!context.mounted) return;
+    final navigator = Navigator.of(context);
+    if (!context.mounted) return;
+    
+    navigator.pop(); // Fecha o drawer
+    if (!context.mounted) return;
+    navigator.pushNamed(route);
   }
 
   void _navigateToLogin() {
-    Navigator.pushReplacement(
-      context,
+    if (!context.mounted) return;
+    final navigator = Navigator.of(context);
+    if (!context.mounted) return;
+    
+    navigator.pushReplacement(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 
-  void _logout() {
-    Navigator.pop(context); // Fecha o drawer
-    context.read<AuthService>().logout();
+  Future<void> _logout() async {
+    if (!context.mounted) return;
+    final navigator = Navigator.of(context);
+    if (!context.mounted) return;
+    
+    navigator.pop(); // Fecha o drawer
+    if (!context.mounted) return;
+    
+    await context.read<AuthService>().logout();
+    if (!context.mounted) return;
+    
     _navigateToLogin();
   }
 }

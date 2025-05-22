@@ -4,9 +4,16 @@ bool isValidEmail(String email) {
 }
 
 bool isValidCPF(String cpf) {
+  // Remove caracteres não numéricos
   final cpfNumeros = cpf.replaceAll(RegExp(r'[^0-9]'), '');
+  
+  // Verifica se tem 11 dígitos
   if (cpfNumeros.length != 11) return false;
+  
+  // Verifica se todos os dígitos são iguais
   if (RegExp(r'^(\d)\1{10}$').hasMatch(cpfNumeros)) return false;
+  
+  // Validação do primeiro dígito verificador
   int soma = 0;
   for (int i = 0; i < 9; i++) {
     soma += int.parse(cpfNumeros[i]) * (10 - i);
@@ -14,6 +21,8 @@ bool isValidCPF(String cpf) {
   int dig1 = 11 - (soma % 11);
   if (dig1 >= 10) dig1 = 0;
   if (dig1 != int.parse(cpfNumeros[9])) return false;
+  
+  // Validação do segundo dígito verificador
   soma = 0;
   for (int i = 0; i < 10; i++) {
     soma += int.parse(cpfNumeros[i]) * (11 - i);
@@ -21,22 +30,116 @@ bool isValidCPF(String cpf) {
   int dig2 = 11 - (soma % 11);
   if (dig2 >= 10) dig2 = 0;
   if (dig2 != int.parse(cpfNumeros[10])) return false;
+  
   return true;
 }
 
+bool isValidCNPJ(String cnpj) {
+  // Remove caracteres não numéricos
+  final cnpjNumeros = cnpj.replaceAll(RegExp(r'[^0-9]'), '');
+  
+  // Verifica se tem 14 dígitos
+  if (cnpjNumeros.length != 14) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (RegExp(r'^(\d)\1{13}$').hasMatch(cnpjNumeros)) return false;
+  
+  // Validação do primeiro dígito verificador
+  int peso = 2;
+  int soma = 0;
+  for (int i = 11; i >= 0; i--) {
+    soma += int.parse(cnpjNumeros[i]) * peso;
+    peso = (peso == 9) ? 2 : peso + 1;
+  }
+  int dig1 = (soma % 11 < 2) ? 0 : 11 - (soma % 11);
+  if (dig1 != int.parse(cnpjNumeros[12])) return false;
+  
+  // Validação do segundo dígito verificador
+  peso = 2;
+  soma = 0;
+  for (int i = 12; i >= 0; i--) {
+    soma += int.parse(cnpjNumeros[i]) * peso;
+    peso = (peso == 9) ? 2 : peso + 1;
+  }
+  int dig2 = (soma % 11 < 2) ? 0 : 11 - (soma % 11);
+  if (dig2 != int.parse(cnpjNumeros[13])) return false;
+  
+  return true;
+}
+
+bool isValidDocument(String document) {
+  // Remove caracteres não numéricos
+  final doc = document.replaceAll(RegExp(r'[^0-9]'), '');
+  
+  // Verifica se é CPF (11 dígitos) ou CNPJ (14 dígitos)
+  if (doc.length == 11) {
+    return isValidCPF(document);
+  } else if (doc.length == 14) {
+    return isValidCNPJ(document);
+  }
+  return false;
+}
+
 bool isValidPhoneBR(String phone) {
+  // Remove caracteres não numéricos
   final cleaned = phone.replaceAll(RegExp(r'[^0-9]'), '');
-  return cleaned.length >= 10 && cleaned.length <= 11 && !cleaned.startsWith('1');
+  
+  // Verifica se tem entre 10 e 11 dígitos
+  if (cleaned.length < 10 || cleaned.length > 11) return false;
+  
+  // Verifica se o DDD é válido (11 a 99, exceto 20, 23, 25, 26, 29, 30, 36, 39, 40-49, 70, 80-89, 90-99)
+  final ddd = int.parse(cleaned.substring(0, 2));
+  if (ddd < 11 || ddd > 99 || 
+      [20, 23, 25, 26, 29, 30, 36, 39].contains(ddd) ||
+      (ddd >= 40 && ddd <= 49) ||
+      ddd == 70 ||
+      (ddd >= 80 && ddd <= 99)) {
+    return false;
+  }
+  
+  // Verifica o nono dígito (se houver) - deve ser 9 para celulares
+  if (cleaned.length == 11 && cleaned[2] != '9') {
+    return false;
+  }
+  
+  return true;
 }
 
 bool isValidName(String name) {
-  return RegExp(r"^[A-Za-zÀ-ÿ\s]{3,}").hasMatch(name.trim());
+  final nameRegex = RegExp(r'^[a-zA-ZÀ-ÿ\s]{5,}(?: [a-zA-ZÀ-ÿ\s]+){1,}$');
+  return nameRegex.hasMatch(name) && name.trim().split(' ').length >= 2;
 }
 
-// Simulação: verifica se o e-mail já está cadastrado (stub, implementar no backend)
+// Verifica se o e-mail já está cadastrado
 Future<bool> isEmailRegistered(String email) async {
-  // Exemplo: sempre retorna false (não cadastrado)
-  // Implemente chamada real ao backend se desejar
-  await Future.delayed(const Duration(milliseconds: 100));
-  return false;
+  try {
+    // Implemente a verificação real no seu backend
+    // Este é apenas um exemplo de implementação
+    await Future.delayed(const Duration(milliseconds: 500));
+    return false; // Altere para a verificação real
+  } catch (e) {
+    throw Exception('Erro ao verificar e-mail: $e');
+  }
+}
+
+// Formata o CPF/CNPJ para exibição
+String formatDocument(String document) {
+  final doc = document.replaceAll(RegExp(r'[^0-9]'), '');
+  
+  if (doc.length == 11) {
+    // Formata CPF: 000.000.000-00
+    return '${doc.substring(0, 3)}.${doc.substring(3, 6)}.${doc.substring(6, 9)}-${doc.substring(9)}';
+  } else if (doc.length == 14) {
+    // Formata CNPJ: 00.000.000/0000-00
+    return '${doc.substring(0, 2)}.${doc.substring(2, 5)}.${doc.substring(5, 8)}/${doc.substring(8, 12)}-${doc.substring(12)}';
+  }
+  
+  return document; // Retorna o original se não for CPF nem CNPJ
+}
+
+// Valida se a senha atende aos requisitos mínimos
+bool isStrongPassword(String password) {
+  // Pelo menos 8 caracteres, 1 letra maiúscula, 1 minúscula, 1 número e 1 caractere especial
+  final strongRegex = RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+  return strongRegex.hasMatch(password);
 }

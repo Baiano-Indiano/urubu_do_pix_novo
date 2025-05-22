@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'home_screen.dart';
-
+import '../services/api_service.dart';
 import '../utils/validators.dart';
+import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -12,97 +11,266 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  // Controladores para os campos de texto
+  final TextEditingController _identificadorController = TextEditingController();
+  final TextEditingController _senhaController = TextEditingController();
+  final TextEditingController _confirmarSenhaController = TextEditingController();
+  final TextEditingController _cpfController = TextEditingController();
+  final TextEditingController _telefoneController = TextEditingController();
+  final TextEditingController _nomeController = TextEditingController();
+  
+  // Formatadores para campos com máscara
+  final maskCpf = MaskTextInputFormatter(mask: '###.###.###-##', filter: {"#": RegExp(r'[0-9]')});
+  final maskCnpj = MaskTextInputFormatter(mask: '##.###.###/####-##', filter: {"#": RegExp(r'[0-9]')});
+  final maskPhone = MaskTextInputFormatter(mask: '(##) #####-####', filter: {"#": RegExp(r'[0-9]')});
+  
+  // Variáveis de estado
+  String? _errorMessage;
+  String? _cpfError, _telefoneError, _nomeError, _emailError, _senhaError, _confirmarSenhaError;
+  bool _isLoading = false;
+  bool _cadastroPorCpf = true;
+  bool _isPessoaFisica = true;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _aceitouTermos = false;
+  
+  // Chave do formulário para validação
+  final _formKey = GlobalKey<FormState>();
+  
   @override
   void initState() {
     super.initState();
-    _identificadorController.addListener(() => setState(() {}));
-    _senhaController.addListener(() => setState(() {}));
+    // Adiciona listeners para validação em tempo real
+    _identificadorController.addListener(_validateIdentificador);
+    _senhaController.addListener(_validateSenha);
+    _confirmarSenhaController.addListener(_validateConfirmarSenha);
+    _nomeController.addListener(_validateNome);
+    _cpfController.addListener(_validateCpf);
+    _telefoneController.addListener(_validateTelefone);
   }
 
   @override
   void dispose() {
+    // Libera recursos
     _identificadorController.dispose();
     _senhaController.dispose();
+    _confirmarSenhaController.dispose();
+    _cpfController.dispose();
+    _telefoneController.dispose();
+    _nomeController.dispose();
     super.dispose();
   }
-
-  final TextEditingController _identificadorController = TextEditingController();
-  final TextEditingController _senhaController = TextEditingController();
-  final TextEditingController _cpfController = TextEditingController();
-  final TextEditingController _telefoneController = TextEditingController();
-  final TextEditingController _nomeController = TextEditingController();
-  final maskCpf = MaskTextInputFormatter(mask: '###.###.###-##', filter: {"#": RegExp(r'[0-9]')});
-  final maskPhone = MaskTextInputFormatter(mask: '(##) #####-####', filter: {"#": RegExp(r'[0-9]')});
-  String? _errorMessage;
-  String? _cpfError, _telefoneError, _nomeError, _emailError;
-  bool _isLoading = false;
-  bool _cadastroPorCpf = true;
+  
+  // Validações em tempo real
+  void _validateIdentificador() {
+    setState(() {
+      if (_identificadorController.text.isEmpty) {
+        _emailError = null;
+        return;
+      }
+      
+      final text = _identificadorController.text.trim();
+      if (_cadastroPorCpf) {
+        if (_isPessoaFisica) {
+          if (!isValidCPF(text)) {
+            _emailError = 'CPF inválido';
+          } else {
+            _emailError = null;
+          }
+        } else {
+          if (!isValidCNPJ(text)) {
+            _emailError = 'CNPJ inválido';
+          } else {
+            _emailError = null;
+          }
+        }
+      } else {
+        if (!isValidEmail(text)) {
+          _emailError = 'E-mail inválido';
+        } else {
+          _emailError = null;
+        }
+      }
+    });
+  }
+  
+  void _validateSenha() {
+    setState(() {
+      if (_senhaController.text.isEmpty) {
+        _senhaError = null;
+        return;
+      }
+      
+      if (!isStrongPassword(_senhaController.text)) {
+        _senhaError = 'A senha deve ter pelo menos 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos';
+      } else {
+        _senhaError = null;
+      }
+      
+      // Valida a confirmação de senha se já foi preenchida
+      if (_confirmarSenhaController.text.isNotEmpty) {
+        _validateConfirmarSenha();
+      }
+    });
+  }
+  
+  void _validateConfirmarSenha() {
+    setState(() {
+      if (_confirmarSenhaController.text.isEmpty) {
+        _confirmarSenhaError = null;
+        return;
+      }
+      
+      if (_confirmarSenhaController.text != _senhaController.text) {
+        _confirmarSenhaError = 'As senhas não coincidem';
+      } else {
+        _confirmarSenhaError = null;
+      }
+    });
+  }
+  
+  void _validateNome() {
+    setState(() {
+      if (_nomeController.text.isEmpty) {
+        _nomeError = null;
+        return;
+      }
+      
+      if (!isValidName(_nomeController.text)) {
+        _nomeError = 'Digite nome e sobrenome válidos';
+      } else {
+        _nomeError = null;
+      }
+    });
+  }
+  
+  void _validateCpf() {
+    setState(() {
+      if (_cpfController.text.isEmpty) {
+        _cpfError = null;
+        return;
+      }
+      
+      if (!isValidCPF(_cpfController.text)) {
+        _cpfError = 'CPF inválido';
+      } else {
+        _cpfError = null;
+      }
+    });
+  }
+  
+  void _validateTelefone() {
+    setState(() {
+      if (_telefoneController.text.isEmpty) {
+        _telefoneError = null;
+        return;
+      }
+      
+      if (!isValidPhoneBR(_telefoneController.text)) {
+        _telefoneError = 'Telefone inválido';
+      } else {
+        _telefoneError = null;
+      }
+    });
+  }
 
   void _register() async {
-    setState(() {
-      _cpfError = null;
-      _telefoneError = null;
-      _nomeError = null;
-    });
+    // Valida todos os campos antes de enviar
+    _validateIdentificador();
+    _validateNome();
+    _validateCpf();
+    _validateTelefone();
+    _validateSenha();
+    _validateConfirmarSenha();
+    
+    // Verifica se há erros de validação
+    if (_emailError != null || 
+        _nomeError != null || 
+        _cpfError != null || 
+        _telefoneError != null || 
+        _senhaError != null || 
+        _confirmarSenhaError != null ||
+        !_aceitouTermos) {
+      
+      setState(() {
+        _errorMessage = 'Por favor, corrija os erros nos campos destacados.';
+        if (!_aceitouTermos) {
+          _errorMessage = 'É necessário aceitar os termos e condições.';
+        }
+      });
+      return;
+    }
+
     final identificador = _identificadorController.text.trim();
     final senha = _senhaController.text;
     final cpf = _cpfController.text.trim();
     final telefone = _telefoneController.text.trim();
     final nome = _nomeController.text.trim();
-    String? errorMessage;
-    if (_cadastroPorCpf) {
-      if (!isValidCPF(identificador)) {
-        errorMessage = 'Digite um CPF válido.';
-      }
-    } else {
-      if (!isValidEmail(identificador)) {
-        errorMessage = 'Digite um e-mail válido.';
-      }
-    }
-    if (!isValidName(nome)) {
-      _nomeError = 'Digite um nome válido (apenas letras e espaços, mínimo 3 letras).';
-      errorMessage = 'Digite um nome válido.';
-    }
-    if (!isValidCPF(cpf)) {
-      _cpfError = 'Digite um CPF válido.';
-      errorMessage = 'Digite um CPF válido.';
-    }
-    if (!isValidPhoneBR(telefone)) {
-      _telefoneError = 'Digite um telefone válido com DDD (ex: 11999999999).';
-      errorMessage = 'Digite um telefone válido.';
-    }
-    if (senha.isEmpty || senha.length < 4) {
-      errorMessage = 'A senha deve ter pelo menos 4 caracteres.';
-    }
-
-    setState(() {});
-    if (errorMessage != null) {
-      setState(() {
-        _errorMessage = errorMessage;
-      });
-      return;
-    }
-
+    
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+    
     try {
+      // Mostra um indicador de progresso com mensagem
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                const Text('Processando seu cadastro...'),
+                const SizedBox(height: 8),
+                Text('Aguarde enquanto verificamos seus dados', 
+                     style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
+            ),
+          );
+        },
+      );
+      
+      // Realiza o cadastro
       final success = await ApiService().register(
         identificador,
         senha,
         nome: nome,
         cpf: cpf,
         telefone: telefone,
+        isPessoaFisica: _isPessoaFisica,
       );
+      
+      // Fecha o diálogo de progresso
+      if (mounted && context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      if (!mounted) return;
+      
       if (success) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        if (!context.mounted) return;
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
+        if (!context.mounted) return;
+        
+        // Mostra mensagem de sucesso
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
             content: Text('Cadastro realizado com sucesso!'),
-            backgroundColor: Colors.green));
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          )
+        );
+        
+        // Redireciona para a tela inicial após um breve atraso
         await Future.delayed(const Duration(milliseconds: 700));
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
+        if (!context.mounted) return;
+        
+        navigator.pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
                 const HomeScreen(),
@@ -113,17 +281,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         );
       } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Este CPF já está cadastrado.'), backgroundColor: Colors.red));
+        if (!context.mounted) return;
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        if (!context.mounted) return;
+        
+        // Mostra mensagem de erro
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(_cadastroPorCpf 
+              ? (_isPessoaFisica ? 'Este CPF já está cadastrado.' : 'Este CNPJ já está cadastrado.') 
+              : 'Este e-mail já está cadastrado.'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          )
+        );
       }
     } catch (e) {
+      // Fecha o diálogo de progresso se estiver aberto
+      if (mounted && context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erro: \n${e.toString()}'),
-          backgroundColor: Colors.red));
+      if (!context.mounted) return;
+      
+      // Mostra mensagem de erro detalhada
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      if (!context.mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Erro ao processar o cadastro:'),
+              const SizedBox(height: 4),
+              Text(e.toString(), style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        )
+      );
+      
       setState(() {
-        _emailError = 'Este e-mail já está cadastrado.';
+        if (_cadastroPorCpf) {
+          _emailError = _isPessoaFisica 
+              ? 'Este CPF já está cadastrado ou é inválido.' 
+              : 'Este CNPJ já está cadastrado ou é inválido.';
+        } else {
+          _emailError = 'Este e-mail já está cadastrado.';
+        }
       });
     } finally {
       if (mounted) {
@@ -137,129 +350,351 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cadastro')),
-      body: Center(
+      appBar: AppBar(
+        title: const Text('Cadastro'),
+        elevation: 0,
+      ),
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Criar Conta',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 40),
-              // Toggle entre CPF e E-mail
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ChoiceChip(
-                    label: const Text('CPF'),
-                    selected: _cadastroPorCpf,
-                    onSelected: (v) {
-                      setState(() {
-                        _cadastroPorCpf = true;
-                        _identificadorController.clear();
-                      });
-                    },
+                  // Título
+                  const Center(
+                    child: Text(
+                      'Crie sua conta',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  ChoiceChip(
-                    label: const Text('E-mail'),
-                    selected: !_cadastroPorCpf,
-                    onSelected: (v) {
-                      setState(() {
-                        _cadastroPorCpf = false;
-                        _identificadorController.clear();
-                      });
-                    },
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Preencha os campos abaixo para criar sua conta',
+                      style: TextStyle(color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Tipo de cadastro
+                  const Text('Tipo de cadastro:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('CPF/CNPJ'),
+                          selected: _cadastroPorCpf,
+                          onSelected: (v) {
+                            setState(() {
+                              _cadastroPorCpf = true;
+                              _identificadorController.clear();
+                              _emailError = null;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('E-mail'),
+                          selected: !_cadastroPorCpf,
+                          onSelected: (v) {
+                            setState(() {
+                              _cadastroPorCpf = false;
+                              _identificadorController.clear();
+                              _emailError = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  // Tipo de pessoa (apenas se for CPF/CNPJ)
+                  if (_cadastroPorCpf) ...[                    const SizedBox(height: 16),
+                    const Text('Tipo de pessoa:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('Pessoa Física'),
+                            selected: _isPessoaFisica,
+                            onSelected: (v) {
+                              setState(() {
+                                _isPessoaFisica = true;
+                                _identificadorController.clear();
+                                _emailError = null;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Text('Pessoa Jurídica'),
+                            selected: !_isPessoaFisica,
+                            onSelected: (v) {
+                              setState(() {
+                                _isPessoaFisica = false;
+                                _identificadorController.clear();
+                                _emailError = null;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Campo de identificador (CPF/CNPJ ou E-mail)
+                  TextField(
+                    controller: _identificadorController,
+                    inputFormatters: _cadastroPorCpf 
+                        ? [_isPessoaFisica ? maskCpf : maskCnpj] 
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: _cadastroPorCpf 
+                          ? (_isPessoaFisica ? 'CPF' : 'CNPJ') 
+                          : 'E-mail',
+                      prefixIcon: Icon(_cadastroPorCpf 
+                          ? Icons.badge_outlined 
+                          : Icons.email_outlined),
+                      border: const OutlineInputBorder(),
+                      errorText: _emailError,
+                      hintText: _cadastroPorCpf 
+                          ? (_isPessoaFisica ? '000.000.000-00' : '00.000.000/0000-00') 
+                          : 'seu.email@exemplo.com',
+                    ),
+                    keyboardType: _cadastroPorCpf
+                        ? TextInputType.number
+                        : TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Nome completo
+                  TextField(
+                    controller: _nomeController,
+                    decoration: InputDecoration(
+                      labelText: 'Nome completo',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      border: const OutlineInputBorder(),
+                      errorText: _nomeError,
+                      hintText: 'Digite seu nome completo',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // CPF
+                  TextField(
+                    controller: _cpfController,
+                    inputFormatters: [maskCpf],
+                    decoration: InputDecoration(
+                      labelText: 'CPF',
+                      prefixIcon: const Icon(Icons.credit_card_outlined),
+                      border: const OutlineInputBorder(),
+                      errorText: _cpfError,
+                      hintText: '000.000.000-00',
+                    ),
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Telefone
+                  TextField(
+                    controller: _telefoneController,
+                    inputFormatters: [maskPhone],
+                    decoration: InputDecoration(
+                      labelText: 'Telefone',
+                      prefixIcon: const Icon(Icons.phone_outlined),
+                      border: const OutlineInputBorder(),
+                      errorText: _telefoneError,
+                      hintText: '(00) 00000-0000',
+                    ),
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Senha
+                  TextField(
+                    controller: _senhaController,
+                    decoration: InputDecoration(
+                      labelText: 'Senha',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                      errorText: _senhaError,
+                      hintText: 'Crie uma senha forte',
+                    ),
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  if (_senhaError == null) ...[                    const SizedBox(height: 4),
+                    Text(
+                      'A senha deve conter letras maiúsculas, minúsculas, números e símbolos',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  
+                  // Confirmar senha
+                  TextField(
+                    controller: _confirmarSenhaController,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmar senha',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                          });
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                      errorText: _confirmarSenhaError,
+                      hintText: 'Digite a senha novamente',
+                    ),
+                    obscureText: _obscureConfirmPassword,
+                    textInputAction: TextInputAction.done,
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Termos e condições
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _aceitouTermos,
+                        onChanged: (value) {
+                          setState(() {
+                            _aceitouTermos = value ?? false;
+                          });
+                        },
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _aceitouTermos = !_aceitouTermos;
+                            });
+                          },
+                          child: RichText(
+                            text: TextSpan(
+                              style: TextStyle(color: Colors.grey[800]),
+                              children: [
+                                const TextSpan(text: 'Li e concordo com os '),
+                                TextSpan(
+                                  text: 'Termos de Uso',
+                                  style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                                ),
+                                const TextSpan(text: ' e '),
+                                TextSpan(
+                                  text: 'Política de Privacidade',
+                                  style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Mensagem de erro
+                  if (_errorMessage != null) ...[                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  // Botão de cadastro
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _register,
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Text('CRIAR CONTA', style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Link para login
+                  Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(color: Colors.grey[800]),
+                          children: [
+                            const TextSpan(text: 'Já tem uma conta? '),
+                            TextSpan(
+                              text: 'Faça login',
+                              style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _identificadorController,
-                inputFormatters: _cadastroPorCpf ? [maskCpf] : null,
-                decoration: InputDecoration(
-                  labelText: _cadastroPorCpf ? 'CPF' : 'E-mail',
-                  border: const OutlineInputBorder(),
-                  errorText: !_cadastroPorCpf ? _emailError : null,
-                ),
-                keyboardType: _cadastroPorCpf
-                    ? TextInputType.number
-                    : TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _nomeController,
-                decoration: InputDecoration(
-                  labelText: 'Nome completo',
-                  border: const OutlineInputBorder(),
-                  errorText: _nomeError,
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _cpfController,
-                inputFormatters: [maskCpf],
-                decoration: InputDecoration(
-                  labelText: 'CPF',
-                  border: const OutlineInputBorder(),
-                  errorText: _cpfError,
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _telefoneController,
-                inputFormatters: [maskPhone],
-                decoration: InputDecoration(
-                  labelText: 'Telefone',
-                  border: const OutlineInputBorder(),
-                  errorText: _telefoneError,
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _senhaController,
-                decoration: const InputDecoration(
-                  labelText: 'Senha',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 20),
-              if (_errorMessage != null) ...[
-                Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 10),
-              ],
-              Builder(
-                builder: (context) {
-                  final id = _identificadorController.text.trim();
-                  final senha = _senhaController.text.trim();
-                  final enableRegister = !_isLoading &&
-                      ((_cadastroPorCpf &&
-                              id.replaceAll(RegExp(r'[^0-9]'), '').length ==
-                                  11) ||
-                          (!_cadastroPorCpf && isValidEmail(id))) &&
-                      senha.length >= 4;
-                  return ElevatedButton(
-                    onPressed: enableRegister ? _register : null,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Text('Cadastrar'),
-                  );
-                },
-              ),
-            ],
+            ),
           ),
         ),
       ),

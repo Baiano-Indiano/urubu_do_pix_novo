@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/account_service.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'receipt_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Formatador de CPF
 class CpfInputFormatter extends TextInputFormatter {
@@ -54,15 +54,17 @@ class TransferScreen extends StatefulWidget {
 class _TransferScreenState extends State<TransferScreen> {
   final TextEditingController _recipientController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
+  final AccountService _accountService = AccountService();
+  
   String _selectedPixType = 'cpf';
-  String _selectedCurrency = 'real';
-  double? _dollarRate;
-  double? _euroRate;
   double _saldo = 0.0;
-  List<Map<String, dynamic>> _history = [];
   bool _isLoading = true;
+  bool _isSearching = false;
   String? _errorMessage;
-  Set<String> _favoritos = {};
+  // Removido _favoritos não utilizado
+  Map<String, dynamic>? _recipientAccount;
+  final _formKey = GlobalKey<FormState>();
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -70,433 +72,451 @@ class _TransferScreenState extends State<TransferScreen> {
     _fetchSaldoEHistorico();
     _fetchCotacoes();
     _loadFavoritos();
+    
+    // Adiciona listener para buscar conta quando o campo de destinatário perder o foco
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _recipientController.text.isNotEmpty) {
+        _searchRecipient();
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _recipientController.dispose();
+    _amountController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFavoritos() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _favoritos = (prefs.getStringList('favoritos') ?? []).toSet();
-    });
+    // Método mantido vazio pois a funcionalidade de favoritos foi removida
+    await Future.delayed(Duration.zero); // Evita warning de método vazio
   }
 
-  bool _camposValidos() {
-    final destinatario = _recipientController.text.trim();
-    String digits = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    double? valor = digits.isEmpty ? null : double.tryParse(digits)! / 100;
-    if (_selectedPixType == 'cpf') {
-      if (destinatario.isEmpty ||
-          destinatario.length != 11 ||
-          int.tryParse(destinatario) == null) {
-        return false;
-      }
-    } else if (_selectedPixType == 'celular') {
-      if (destinatario.isEmpty || destinatario.length < 10) return false;
-    } else if (_selectedPixType == 'email') {
-      if (destinatario.isEmpty || !destinatario.contains('@')) return false;
-    } else {
-      if (destinatario.isEmpty) return false;
+  // Método removido pois a validação é feita diretamente no validador do campo
+  
+  Future<void> _searchRecipient() async {
+    final searchTerm = _recipientController.text.trim();
+    if (searchTerm.isEmpty) {
+      setState(() => _recipientAccount = null);
+      return;
     }
-    if (valor == null || valor < 0.5) return false;
-    return true;
+    
+    setState(() => _isSearching = true);
+    
+    try {
+      final account = await _accountService.searchAccount(searchTerm);
+      setState(() {
+        _recipientAccount = account;
+        _errorMessage = account == null ? 'Conta não encontrada' : null;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao buscar conta: $e';
+        _recipientAccount = null;
+      });
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+  
+  Future<void> _transferir() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_recipientAccount == null) return;
+    
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      setState(() => _errorMessage = 'Usuário não autenticado');
+      return;
+    }
+    
+    if (userId == _recipientAccount!['user_id']) {
+      setState(() => _errorMessage = 'Não é possível transferir para a própria conta');
+      return;
+    }
+    
+    final valor = double.parse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) / 100;
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      final result = await _accountService.transfer(
+        fromUserId: userId,
+        toUserId: _recipientAccount!['user_id'],
+        amount: valor,
+        description: 'Transferência via PIX',
+      );
+      
+      if (result['success'] == true) {
+        // Atualiza o saldo local
+        await _fetchSaldoEHistorico();
+        
+        // Navega para o comprovante
+        if (mounted) {
+          final now = DateTime.now();
+          final formattedDate = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+          
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ReceiptScreen(
+                  destinatario: _recipientAccount!['nome'],
+                  valorEmReais: valor,
+                  data: formattedDate,
+                  moeda: 'BRL',
+                  valorOriginal: valor,
+                ),
+              ),
+            );
+          }
+          
+          // Limpa o formulário
+          _recipientController.clear();
+          _amountController.clear();
+          setState(() => _recipientAccount = null);
+        }
+      } else {
+        setState(() => _errorMessage = result['error'] ?? 'Erro ao realizar transferência');
+      }
+    } catch (e) {
+      setState(() => _errorMessage = 'Erro ao realizar transferência: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _fetchCotacoes() async {
     try {
-      final cotacoes = await ApiService().fetchCotacoes();
-      setState(() {
-        _dollarRate = cotacoes['dolar'];
-        _euroRate = cotacoes['euro'];
-      });
+      final apiService = ApiService();
+      final cotacoes = await apiService.fetchCotacoes();
+      debugPrint('Cotações carregadas: $cotacoes');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Erro: ${e.toString()}'),
-              backgroundColor: Colors.red),
-        );
-      }
+      debugPrint('Erro ao buscar cotações: $e');
     }
   }
 
   Future<void> _fetchSaldoEHistorico() async {
-    setState(() {
-      _isLoading = true;
-    });
     try {
-      final api = ApiService();
-      final saldo = await api.fetchSaldo();
-      final historico = await api.fetchHistorico();
+      final apiService = ApiService();
+      final saldo = await apiService.fetchSaldo();
+      
       if (mounted) {
         setState(() {
           _saldo = saldo;
-          _history = historico;
           _isLoading = false;
         });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Erro ao buscar saldo/histórico';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _realizarTransferencia() async {
-    final destinatario = _recipientController.text.trim();
-    // Extrai valor formatado
-    String digits = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    double? valor = digits.isEmpty ? null : double.parse(digits) / 100;
-    double valorEmReais = 0.0;
-    if (_selectedCurrency == 'real') {
-      valorEmReais = valor ?? 0.0;
-    } else if (_selectedCurrency == 'dolar') {
-      if (_dollarRate == null) {
+      if (mounted) {
         setState(() {
-          _errorMessage = 'Cotação do dólar não disponível.';
+          _errorMessage = 'Erro ao carregar saldo: $e';
+          _isLoading = false;
         });
-        return;
-      }
-      valorEmReais = (valor ?? 0.0) * _dollarRate!;
-    } else if (_selectedCurrency == 'euro') {
-      if (_euroRate == null) {
-        setState(() {
-          _errorMessage = 'Cotação do euro não disponível.';
-        });
-        return;
-      }
-      valorEmReais = (valor ?? 0.0) * _euroRate!;
-    }
-    if (destinatario.isEmpty || valor == null) {
-      setState(() {
-        _errorMessage = 'Preencha destinatário e valor válido';
-      });
-      return;
-    }
-    if (valorEmReais < 0.5) {
-      setState(() {
-        _errorMessage = 'O valor mínimo para transferência é R\$ 0,50';
-      });
-      return;
-    }
-    if (valorEmReais > 50000) {
-      setState(() {
-        _errorMessage = 'O valor máximo para transferência é R\$ 50.000,00';
-      });
-      return;
-    }
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      final api = ApiService();
-      await api.registrarTransferencia(
-        destinatario,
-        valorEmReais,
-        moeda: _selectedCurrency == 'real'
-            ? 'BRL'
-            : _selectedCurrency == 'dolar'
-                ? 'USD'
-                : 'EUR',
-        valorOriginal: valor,
-      );
-      await _fetchSaldoEHistorico();
-      _recipientController.clear();
-      _amountController.clear();
-      setState(() {
-        _errorMessage = null;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Transferência realizada com sucesso!'),
-            backgroundColor: Colors.green));
-      }
-      await Future.delayed(const Duration(milliseconds: 700));
-      if (mounted) {
-        Navigator.of(context).push(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                ReceiptScreen(
-              destinatario: destinatario,
-              valorEmReais: valorEmReais,
-              moeda: _selectedCurrency == 'real'
-                  ? 'BRL'
-                  : _selectedCurrency == 'dolar'
-                      ? 'USD'
-                      : 'EUR',
-              valorOriginal: valor,
-              data: DateTime.now().toString().substring(0, 16),
-            ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Erro ao transferir'), backgroundColor: Colors.red));
-      }
-      setState(() {
-        _errorMessage = 'Erro ao transferir';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Map) {
-      if (args['destinatario'] != null) {
-        _recipientController.text = args['destinatario'].toString();
-      }
-      if (args['valor'] != null) {
-        _amountController.text = args['valor'].toString();
       }
     }
-    if (!mounted) return;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Transferência')),
+      appBar: AppBar(
+        title: const Text('Transferência PIX'),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (_favoritos.isNotEmpty) ...[
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('Favoritos:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(height: 8),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: _favoritos.map((f) => Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: ActionChip(
-                              label: Text(f),
-                              avatar: const Icon(Icons.star, color: Colors.orange),
-                              onPressed: () {
-                                setState(() {
-                                  _recipientController.text = f;
-                                });
-                              },
-                            ),
-                          )).toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    Text('Saldo: R\$ ${_saldo.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18)),
-                    const SizedBox(height: 24),
-                    // Seletor de tipo de chave Pix
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedPixType,
-                            decoration: const InputDecoration(
-                              labelText: 'Tipo de chave Pix',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'cpf', child: Text('CPF')),
-                              DropdownMenuItem(
-                                  value: 'celular', child: Text('Celular')),
-                              DropdownMenuItem(
-                                  value: 'email', child: Text('E-mail')),
-                              DropdownMenuItem(
-                                  value: 'aleatoria',
-                                  child: Text('Chave Aleatória')),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedPixType = value!;
-                                _recipientController.clear();
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _recipientController,
-                      decoration: InputDecoration(
-                        labelText: _selectedPixType == 'cpf'
-                            ? 'CPF'
-                            : _selectedPixType == 'celular'
-                                ? 'Celular'
-                                : _selectedPixType == 'email'
-                                    ? 'E-mail'
-                                    : 'Chave Aleatória',
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: _selectedPixType == 'celular'
-                          ? TextInputType.phone
-                          : _selectedPixType == 'email'
-                              ? TextInputType.emailAddress
-                              : TextInputType.text,
-                      inputFormatters: _selectedPixType == 'cpf'
-                          ? [CpfInputFormatter()]
-                          : _selectedPixType == 'celular'
-                              ? [CelularInputFormatter()]
-                              : [],
-                    ),
-                    const SizedBox(height: 16),
-                    // Seletor de moeda
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedCurrency,
-                            decoration: const InputDecoration(
-                              labelText: 'Moeda',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'real', child: Text('Real (BRL)')),
-                              DropdownMenuItem(
-                                  value: 'dolar', child: Text('Dólar (USD)')),
-                              DropdownMenuItem(
-                                  value: 'euro', child: Text('Euro (EUR)')),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedCurrency = value!;
-                                _amountController.clear();
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _amountController,
-                      decoration: InputDecoration(
-                        labelText: _selectedCurrency == 'real'
-                            ? 'Valor em Real'
-                            : _selectedCurrency == 'dolar'
-                                ? 'Valor em Dólar'
-                                : 'Valor em Euro',
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) {
-                        String digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-                        if (digits.isEmpty) {
-                          _amountController.text = '';
-                          _amountController.selection =
-                              const TextSelection.collapsed(offset: 0);
+          : _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final theme = Theme.of(context);
+    return Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Campo de valor em reais
+            TextFormField(
+              controller: _amountController,
+              decoration: InputDecoration(
+                labelText: 'Valor em Reais',
+                prefixText: 'R\$ ',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                suffixIcon: _amountController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _amountController.clear();
                           setState(() {});
-                          return;
-                        }
-                        double parsed = double.parse(digits) / 100;
-                        if (_selectedCurrency == 'real' && parsed > 50000) {
-                          parsed = 50000;
-                        } else if (_selectedCurrency == 'dolar' &&
-                            parsed > 10000) {
-                          parsed = 10000; // Aproximadamente 50 mil reais
-                        } else if (_selectedCurrency == 'euro' &&
-                            parsed > 9000) {
-                          parsed = 9000; // Aproximadamente 50 mil reais
-                        }
-                        String symbol = _selectedCurrency == 'real'
-                            ? 'R\$'
-                            : _selectedCurrency == 'dolar'
-                                ? 'US\$'
-                                : '€';
-                        String formatted = NumberFormat.currency(
-                                locale: 'pt_BR', symbol: symbol)
-                            .format(parsed);
-                        _amountController.value = TextEditingValue(
-                          text: formatted,
-                          selection:
-                              TextSelection.collapsed(offset: formatted.length),
-                        );
-                        setState(() {});
-                      },
-                    ),
-                    if (_selectedCurrency != 'real' &&
-                        _amountController.text.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Builder(
-                          builder: (_) {
-                            String digits = _amountController.text
-                                .replaceAll(RegExp(r'[^0-9]'), '');
-                            if (digits.isEmpty) return const SizedBox();
-                            double valor = double.parse(digits) / 100;
-                            double? cotacao = _selectedCurrency == 'dolar'
-                                ? _dollarRate
-                                : _euroRate;
-                            if (cotacao == null) return const SizedBox();
-                            double emReais = valor * cotacao;
-                            if (emReais > 50000) emReais = 50000;
-                            return Text(
-                                'Valor em reais: R\$ ${emReais.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold));
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    if (_errorMessage != null) ...[
-                      Text(_errorMessage!,
-                          style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 10),
-                    ],
-                    ElevatedButton(
-                      onPressed: _isLoading || !_camposValidos()
-                          ? null
-                          : _realizarTransferencia,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
-                          : const Text('Transferir'),
-                    ),
-                    const SizedBox(height: 30),
-                    const Text('Histórico de Transferências',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: _history.length,
-                        itemBuilder: (context, index) {
-                          final item = _history[index];
-                          return ListTile(
-                            leading: const Icon(Icons.swap_horiz),
-                            title: Text('Para: ${item['destinatario']}'),
-                            subtitle: Text(
-                                'Valor: R\$ ${item['valor'].toStringAsFixed(2)}'),
-                            trailing: Text(item['data']),
-                          );
                         },
-                      ),
-                    ),
-                  ],
+                      )
+                    : null,
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                _RealInputFormatter(),
+              ],
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Informe o valor da transferência';
+                }
+                final valor = double.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
+                if (valor < 50) {
+                  return 'O valor mínimo é R\$ 0,50';
+                }
+                if (valor / 100 > _saldo) {
+                  return 'Saldo insuficiente';
+                }
+                return null;
+              },
+            ),
+            
+            const SizedBox(height: 24.0),
+            
+            // Seletor de tipo de chave PIX
+            DropdownButtonFormField<String>(
+              value: _selectedPixType,
+              decoration: InputDecoration(
+                labelText: 'Tipo de chave PIX',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10.0),
                 ),
               ),
+              items: const [
+                DropdownMenuItem(value: 'cpf', child: Text('CPF')),
+                DropdownMenuItem(value: 'email', child: Text('E-mail')),
+                DropdownMenuItem(value: 'celular', child: Text('Celular')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedPixType = value;
+                    _recipientController.clear();
+                    _recipientAccount = null;
+                  });
+                }
+              },
             ),
+            
+            const SizedBox(height: 16.0),
+            
+            // Campo de destinatário
+            TextFormField(
+              controller: _recipientController,
+              focusNode: _focusNode,
+              decoration: InputDecoration(
+                labelText: _getRecipientFieldLabel(),
+                hintText: _getRecipientHint(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                suffixIcon: _isSearching
+                    ? const Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : _recipientController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _recipientController.clear();
+                              setState(() => _recipientAccount = null);
+                            },
+                          )
+                        : null,
+              ),
+              keyboardType: _getKeyboardType(),
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _searchRecipient(),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Informe o destinatário';
+                }
+                if (_recipientAccount == null) {
+                  return 'Conta não encontrada';
+                }
+                return null;
+              },
+            ),
+            
+            // Informações do destinatário
+            if (_recipientAccount != null) ...[
+              const SizedBox(height: 16.0),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _recipientAccount!['nome'] ?? 'Nome não informado',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8.0),
+                      if (_recipientAccount!['cpf'] != null)
+                        _buildInfoRow('CPF', _formatCpf(_recipientAccount!['cpf'])),
+                      if (_recipientAccount!['email'] != null)
+                        _buildInfoRow('E-mail', _recipientAccount!['email']),
+                      if (_recipientAccount!['telefone'] != null)
+                        _buildInfoRow('Telefone', _formatPhone(_recipientAccount!['telefone'])),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            
+            const SizedBox(height: 24.0),
+            
+            // Botão de transferir
+            ElevatedButton(
+              onPressed: _isLoading || _isSearching || _recipientAccount == null
+                  ? null
+                  : _transferir,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Transferir',
+                      style: TextStyle(fontSize: 16),
+                    ),
+            ),
+            
+            // Saldo disponível
+            const SizedBox(height: 16.0),
+            Text(
+              'Saldo disponível: R\$ ${_saldo.toStringAsFixed(2)}',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.textTheme.bodySmall?.color?.withAlpha((255 * 0.8).round()),
+              ),
+            ),
+            
+            // Mensagem de erro
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 16.0),
+              Text(
+                _errorMessage!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text(value),
+        ],
+      ),
+    );
+  }
+  
+  String _getRecipientFieldLabel() {
+    switch (_selectedPixType) {
+      case 'cpf':
+        return 'CPF do destinatário';
+      case 'email':
+        return 'E-mail do destinatário';
+      case 'celular':
+        return 'Celular do destinatário';
+      default:
+        return 'Chave PIX';
+    }
+  }
+  
+  String _getRecipientHint() {
+    switch (_selectedPixType) {
+      case 'cpf':
+        return '000.000.000-00';
+      case 'email':
+        return 'email@exemplo.com';
+      case 'celular':
+        return '(00) 00000-0000';
+      default:
+        return '';
+    }
+  }
+  
+  TextInputType _getKeyboardType() {
+    switch (_selectedPixType) {
+      case 'cpf':
+      case 'celular':
+        return TextInputType.phone;
+      case 'email':
+        return TextInputType.emailAddress;
+      default:
+        return TextInputType.text;
+    }
+  }
+  
+  String _formatCpf(String cpf) {
+    if (cpf.length != 11) return cpf;
+    return '${cpf.substring(0, 3)}.${cpf.substring(3, 6)}.${cpf.substring(6, 9)}-${cpf.substring(9)}';
+  }
+  
+  String _formatPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'[^0-9]'), ''); 
+    if (digits.length == 11) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+    } else if (digits.length == 10) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+    }
+    return phone;
+  }
+}
+
+class _RealInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) return newValue;
+
+    final cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final value = int.tryParse(cleanText) ?? 0;
+
+    final formattedText = (value / 100).toStringAsFixed(2).replaceAll('.', ',');
+    final newSelection = TextSelection.collapsed(offset: formattedText.length);
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: newSelection,
     );
   }
 }

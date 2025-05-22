@@ -47,11 +47,13 @@ class TransferDetailScreen extends StatelessWidget {
                   icon: const Icon(Icons.share),
                   label: const Text('Compartilhar'),
                   onPressed: () {
-                    // Compartilhamento do comprovante pode ser implementado aqui
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    if (!context.mounted) return;
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                    if (!context.mounted) return;
+                    scaffoldMessenger.showSnackBar(
                       const SnackBar(
-                          content: Text(
-                              'Funcionalidade de compartilhamento em breve!')),
+                        content: Text('Funcionalidade de compartilhamento em breve!'),
+                      ),
                     );
                   },
                 ),

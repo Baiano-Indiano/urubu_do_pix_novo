@@ -72,36 +72,51 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final api = ApiService();
       final success = await api.login(identificador, senha);
+      if (!mounted) return;
+      
       if (success) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Login realizado com sucesso!'),
-            backgroundColor: Colors.green));
+        if (!context.mounted) return;
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        if (!context.mounted) return;
+        scaffoldMessenger.showSnackBar(const SnackBar(
+          content: Text('Login realizado com sucesso!'),
+          backgroundColor: Colors.green,
+        ));
+        
         await Future.delayed(const Duration(milliseconds: 700));
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
+        if (!context.mounted) return;
+        
+        final navigator = Navigator.of(context);
+        if (!context.mounted) return;
+        navigator.pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const HomeScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
+            pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
           ),
         );
       } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('CPF ou senha inválidos'),
-            backgroundColor: Colors.red));
+        if (!context.mounted) return;
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        if (!context.mounted) return;
+        scaffoldMessenger.showSnackBar(const SnackBar(
+          content: Text('CPF ou senha inválidos'),
+          backgroundColor: Colors.red,
+        ));
         setState(() {
           _errorMessage = 'CPF ou senha inválidos.';
         });
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erro: ${e.toString()}'), backgroundColor: Colors.red));
+      if (!context.mounted) return;
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      if (!context.mounted) return;
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Text('Erro: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ));
     } finally {
       if (mounted) {
         setState(() {
@@ -209,9 +224,12 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).push(
+                  if (!context.mounted) return;
+                  final navigator = Navigator.of(context);
+                  if (!context.mounted) return;
+                  navigator.push(
                     PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) => RegisterScreen(),
+                      pageBuilder: (context, animation, secondaryAnimation) => const RegisterScreen(),
                       transitionsBuilder: (context, animation, secondaryAnimation, child) {
                         const begin = Offset(1.0, 0.0);
                         const end = Offset.zero;

@@ -11,6 +11,20 @@ import 'screens/profile_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class MyNavigatorObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('Navegando para: ${route.settings.name}');
+    debugPrint('Rota anterior: ${previousRoute?.settings.name}');
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('Voltando de: ${route.settings.name}');
+    debugPrint('Retornando para: ${previousRoute?.settings.name}');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
@@ -61,6 +75,7 @@ class MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => AuthService()),
       ],
       child: MaterialApp(
+        navigatorObservers: [MyNavigatorObserver()],
         locale: _locale,
         onGenerateTitle: (context) =>
             Localizations.localeOf(context).languageCode == 'en'

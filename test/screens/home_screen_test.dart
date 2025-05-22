@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
@@ -174,6 +176,16 @@ void main() {
     // Configura os mocks
     when(mockApiService.fetchSaldo()).thenAnswer((_) async => 1500.0);
     
+    // Cria um Completer para controlar quando o logout for concluído
+    final logoutCompleter = Completer<void>();
+    
+    // Configura o mock para o logout
+    when(mockAuthService.logout()).thenAnswer((_) async {
+      // Simula o redirecionamento para a tela de login após logout
+      navigatorKey.currentState?.pushReplacementNamed('/login');
+      logoutCompleter.complete();
+    });
+    
     // Executa o teste com o MaterialApp que usa a navigatorKey
     await tester.pumpWidget(
       MultiProvider(
@@ -197,14 +209,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu));
     await tester.pumpAndSettle();
     
-    // Configura o mock para o logout após o drawer ser aberto
-    when(mockAuthService.logout()).thenAnswer((_) async {
-      // Simula o redirecionamento para a tela de login após logout
-      navigatorKey.currentState?.pushReplacementNamed('/login');
-    });
-    
     // Clica em sair
     await tester.tap(find.text('Sair'));
+    
+    // Aguarda o logout ser concluído
+    await logoutCompleter.future;
     await tester.pumpAndSettle();
     
     // Verifica se o método de logout foi chamado
