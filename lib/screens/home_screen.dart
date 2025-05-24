@@ -6,6 +6,7 @@ import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'cotation_screen.dart';
 import 'transfer_screen.dart';
+import 'settings_screen.dart';
 import '../services/auth_service.dart';
 import '../main.dart';
 
@@ -137,6 +138,19 @@ class _HomeScreenState extends State<HomeScreen> {
             title: 'Perfil',
             onTap: () => _navigateTo('/profile'),
           ),
+          _buildDrawerItem(
+            icon: Icons.settings,
+            title: 'Configurações',
+            onTap: () {
+              Navigator.pop(context); // Fecha o drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
           _buildLanguageItem(),
           _buildDrawerItem(
             icon: Icons.logout,
@@ -205,15 +219,18 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.push(
               context,
               PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) => const CotationScreen(),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    const CotationScreen(),
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
                   const begin = Offset(1.0, 0.0);
                   const end = Offset.zero;
                   const curve = Curves.easeInOut;
-                  
-                  var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+                  var tween = Tween(begin: begin, end: end)
+                      .chain(CurveTween(curve: curve));
                   var offsetAnimation = animation.drive(tween);
-                  
+
                   return SlideTransition(
                     position: offsetAnimation,
                     child: FadeTransition(
@@ -248,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final saldo = await api.fetchSaldo();
       final historico = await api.fetchHistorico();
       if (!mounted) return;
-      
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -264,8 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Erro'),
-          content: const Text(
-              'Você precisa estar logado para acessar o histórico.'),
+          content:
+              const Text('Você precisa estar logado para acessar o histórico.'),
           actions: [
             TextButton(
               onPressed: () {
@@ -286,18 +303,20 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!context.mounted) return;
     final navigator = Navigator.of(context);
     if (!context.mounted) return;
-    
+
     final result = await navigator.push(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const TransferScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const TransferScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOut;
-          
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+          var tween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
           var offsetAnimation = animation.drive(tween);
-          
+
           return SlideTransition(
             position: offsetAnimation,
             child: FadeTransition(
@@ -309,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
         transitionDuration: const Duration(milliseconds: 300),
       ),
     );
-    
+
     if (!context.mounted) return;
     await _fetchSaldo(); // Atualiza o saldo após retornar
     if (result == true && context.mounted) {
@@ -321,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!context.mounted) return;
     final navigator = Navigator.of(context);
     if (!context.mounted) return;
-    
+
     navigator.pop(); // Fecha o drawer
     if (!context.mounted) return;
     navigator.pushNamed(route);
@@ -331,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!context.mounted) return;
     final navigator = Navigator.of(context);
     if (!context.mounted) return;
-    
+
     navigator.pushReplacement(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
@@ -341,13 +360,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!context.mounted) return;
     final navigator = Navigator.of(context);
     if (!context.mounted) return;
-    
+
     navigator.pop(); // Fecha o drawer
     if (!context.mounted) return;
-    
+
     await context.read<AuthService>().logout();
     if (!context.mounted) return;
-    
+
     _navigateToLogin();
   }
 }

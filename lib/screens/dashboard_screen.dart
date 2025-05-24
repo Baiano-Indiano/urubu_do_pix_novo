@@ -6,17 +6,16 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:urubu_pix/utils/csv_utils.dart';
-import 'package:urubu_pix/utils/pdf_utils.dart';
+import 'package:urubu_do_pix_novo/utils/csv_utils.dart';
+import 'package:urubu_do_pix_novo/utils/pdf_utils.dart';
 import 'dashboard_content.dart';
 
 class DashboardScreen extends StatefulWidget {
   final double saldo;
   final List<Map<String, dynamic>> historico;
-  DashboardScreen({super.key, required this.saldo, List<Map<String, dynamic>>? historico})
-    : historico = historico ?? [];
-
-  
+  DashboardScreen(
+      {super.key, required this.saldo, List<Map<String, dynamic>>? historico})
+      : historico = historico ?? [];
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -28,7 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _itensExibidos = 0;
   bool _carregandoMais = false;
   final ScrollController _scrollController = ScrollController();
-  
+
   // Filtros
   String _filtroDestinatario = '';
   String _filtroTipo = 'Todos';
@@ -37,17 +36,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   double? _filtroValorMin;
   double? _filtroValorMax;
   String? _erroFiltroData;
-  
+
   // Controladores
   final TextEditingController _dataInicioController = TextEditingController();
   final TextEditingController _dataFimController = TextEditingController();
   final TextEditingController _valorMinController = TextEditingController();
   final TextEditingController _valorMaxController = TextEditingController();
-  
+
   // Gráficos
   String _tipoGrafico = 'Barra';
   final List<String> _tiposGraficos = ['Barra', 'Linha', 'Pizza'];
-  
+
   // Personalização
   bool _mostrarSaldo = true;
   bool _mostrarTransferencias = true;
@@ -63,7 +62,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_filtroDataInicio != null && _filtroDataFim != null) {
       if (_filtroDataInicio!.isAfter(_filtroDataFim!)) {
         setState(() {
-          _erroFiltroData = 'A data inicial não pode ser maior que a data final.';
+          _erroFiltroData =
+              'A data inicial não pode ser maior que a data final.';
         });
       } else {
         setState(() {
@@ -93,8 +93,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-
-
   @override
   void initState() {
     super.initState();
@@ -106,25 +104,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Inicializa o plugin de notificações
   Future<void> _initializeNotifications() async {
-    const AndroidInitializationSettings androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initSettings = InitializationSettings(android: androidInit);
+    const AndroidInitializationSettings androidInit =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initSettings =
+        InitializationSettings(android: androidInit);
     await notificationsPlugin.initialize(initSettings);
   }
 
   // Torne o plugin de notificações público para evitar warning de underline
-  final FlutterLocalNotificationsPlugin notificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   // Método de checagem de saldo e notificação
   Future<void> checarSaldoENotificar() async {
     if (widget.saldo < 100) {
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
         'saldo_baixo',
         'Saldo Baixo',
         channelDescription: 'Notificações de saldo baixo',
         importance: Importance.max,
         priority: Priority.high,
       );
-      const NotificationDetails notificationDetails = NotificationDetails(android: androidDetails);
+      const NotificationDetails notificationDetails =
+          NotificationDetails(android: androidDetails);
       await notificationsPlugin.show(
         0,
         'Atenção: Saldo Baixo',
@@ -146,23 +149,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
       _carregarMaisItens();
     }
   }
 
   Future<void> _carregarMaisItens() async {
     if (_carregandoMais) return;
-    
+
     setState(() {
       _carregandoMais = true;
     });
-    
+
     // Simula um atraso de rede
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     setState(() {
-      _itensExibidos = (_itensExibidos + _itensPorPagina).clamp(0, _historicoFiltrado.length);
+      _itensExibidos = (_itensExibidos + _itensPorPagina)
+          .clamp(0, _historicoFiltrado.length);
       _carregandoMais = false;
     });
   }
@@ -170,8 +175,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> get _historicoFiltrado {
     return widget.historico.where((item) {
       // Filtro por destinatário
-      if (_filtroDestinatario.isNotEmpty && 
-          !(item['destinatario']?.toString() ?? '').toLowerCase().contains(_filtroDestinatario.toLowerCase())) {
+      if (_filtroDestinatario.isNotEmpty &&
+          !(item['destinatario']?.toString() ?? '')
+              .toLowerCase()
+              .contains(_filtroDestinatario.toLowerCase())) {
         return false;
       }
       // Filtro por tipo
@@ -235,7 +242,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Personalizar Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text('Personalizar Dashboard',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const SizedBox(height: 16),
               SwitchListTile(
                 title: const Text('Mostrar saldo'),
@@ -287,8 +295,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalEnviado = widget.historico.fold(
-        0.0, (sum, item) => sum + (item['valor'] ?? 0.0));
+    final totalEnviado =
+        widget.historico.fold(0.0, (sum, item) => sum + (item['valor'] ?? 0.0));
     final qtdTransf = widget.historico.length;
     final historicoFiltrado = _historicoFiltrado;
 
@@ -368,8 +376,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           filtroValorMin: _filtroValorMin,
           filtroValorMax: _filtroValorMax,
           erroFiltroData: _erroFiltroData,
-          onDestinatarioChanged: (value) => setState(() => _filtroDestinatario = value),
-          onTipoChanged: (tipo) => setState(() => _filtroTipo = tipo ?? 'Todos'),
+          onDestinatarioChanged: (value) =>
+              setState(() => _filtroDestinatario = value),
+          onTipoChanged: (tipo) =>
+              setState(() => _filtroTipo = tipo ?? 'Todos'),
           onLimparFiltros: _limparFiltros,
           onDataInicioPressed: () async {
             final picked = await showDatePicker(
@@ -438,14 +448,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return valores;
   }
 
-
   Widget _buildGrafico() {
     switch (_tipoGrafico) {
       case 'Barra':
         return BarChart(
           BarChartData(
             alignment: BarChartAlignment.spaceAround,
-            maxY: (valoresPorMes.isNotEmpty ? valoresPorMes.reduce((a, b) => a > b ? a : b) : 0) + 20,
+            maxY: (valoresPorMes.isNotEmpty
+                    ? valoresPorMes.reduce((a, b) => a > b ? a : b)
+                    : 0) +
+                20,
             barGroups: List.generate(valoresPorMes.length, (i) {
               return BarChartGroupData(
                 x: i,
@@ -457,7 +469,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(4),
                     backDrawRodData: BackgroundBarChartRodData(
                       show: true,
-                      toY: (valoresPorMes.isNotEmpty ? valoresPorMes.reduce((a, b) => a > b ? a : b) : 0) + 20,
+                      toY: (valoresPorMes.isNotEmpty
+                              ? valoresPorMes.reduce((a, b) => a > b ? a : b)
+                              : 0) +
+                          20,
                       color: Colors.blue[100]!.withAlpha(128),
                     ),
                   )
@@ -472,10 +487,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   showTitles: true,
                   reservedSize: 32,
                   getTitlesWidget: (value, meta) {
-                    final mes = DateTime.now().subtract(Duration(days: (5-value.toInt())*30));
+                    final mes = DateTime.now()
+                        .subtract(Duration(days: (5 - value.toInt()) * 30));
                     return Padding(
                       padding: const EdgeInsets.only(top: 8.0),
-                      child: Text('${mes.month}/${mes.year%100}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      child: Text('${mes.month}/${mes.year % 100}',
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.bold)),
                     );
                   },
                 ),
@@ -498,7 +516,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 getTooltipItem: (group, groupIndex, rod, rodIndex) {
                   return BarTooltipItem(
                     'R\$ ${rod.toY.toStringAsFixed(2)}',
-                    const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    const TextStyle(
+                        color: Colors.black, fontWeight: FontWeight.bold),
                   );
                 },
               ),
@@ -510,22 +529,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           LineChartData(
             lineBarsData: [
               LineChartBarData(
-                spots: List.generate(valoresPorMes.length, (i) =>
-                    FlSpot(i.toDouble(), valoresPorMes[i])),
+                spots: List.generate(valoresPorMes.length,
+                    (i) => FlSpot(i.toDouble(), valoresPorMes[i])),
                 isCurved: true,
                 color: Colors.green[700],
                 barWidth: 4,
-                belowBarData: BarAreaData(show: true, color: Colors.green[200]!.withAlpha(102)),
+                belowBarData: BarAreaData(
+                    show: true, color: Colors.green[200]!.withAlpha(102)),
                 dotData: FlDotData(
                   show: true,
-                  getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                  getDotPainter: (spot, percent, barData, index) =>
+                      FlDotCirclePainter(
                     radius: 5,
                     color: Colors.white,
                     strokeWidth: 3,
                     strokeColor: Colors.green[700]!,
                   ),
                 ),
-                showingIndicators: List.generate(valoresPorMes.length, (i) => i),
+                showingIndicators:
+                    List.generate(valoresPorMes.length, (i) => i),
               ),
             ],
             titlesData: FlTitlesData(
@@ -534,10 +556,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   showTitles: true,
                   reservedSize: 32,
                   getTitlesWidget: (value, meta) {
-                    final mes = DateTime.now().subtract(Duration(days: (5-value.toInt())*30));
+                    final mes = DateTime.now()
+                        .subtract(Duration(days: (5 - value.toInt()) * 30));
                     return Padding(
                       padding: const EdgeInsets.only(top: 8.0),
-                      child: Text('${mes.month}/${mes.year%100}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      child: Text('${mes.month}/${mes.year % 100}',
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.bold)),
                     );
                   },
                 ),
@@ -547,7 +572,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   showTitles: true,
                   reservedSize: 40,
                   getTitlesWidget: (value, meta) {
-                    return Text(value.toInt().toString(), style: const TextStyle(fontSize: 12));
+                    return Text(value.toInt().toString(),
+                        style: const TextStyle(fontSize: 12));
                   },
                 ),
               ),
@@ -581,7 +607,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   return touchedSpots.map((spot) {
                     return LineTooltipItem(
                       'R\$ ${spot.y.toStringAsFixed(2)}',
-                      const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                      const TextStyle(
+                          color: Colors.black, fontWeight: FontWeight.bold),
                     );
                   }).toList();
                 },
@@ -596,11 +623,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final double fontSize = 18;
               final double radius = 50;
               return PieChartSectionData(
-                color: Colors.primaries[i % Colors.primaries.length].withAlpha(216),
+                color: Colors.primaries[i % Colors.primaries.length]
+                    .withAlpha(216),
                 value: valoresPorMes[i],
-                title: valoresPorMes[i] > 0 ? 'R\$ ${valoresPorMes[i].toStringAsFixed(2)}' : '',
+                title: valoresPorMes[i] > 0
+                    ? 'R\$ ${valoresPorMes[i].toStringAsFixed(2)}'
+                    : '',
                 radius: radius,
-                titleStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: Colors.black87),
+                titleStyle: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87),
                 titlePositionPercentageOffset: 0.55,
                 borderSide: BorderSide(color: Colors.white, width: 2),
               );
@@ -617,11 +650,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final double fontSize = 18;
               final double radius = 50;
               return PieChartSectionData(
-                color: Colors.primaries[i % Colors.primaries.length].withAlpha((0.85 * 255).toInt()),
+                color: Colors.primaries[i % Colors.primaries.length]
+                    .withAlpha((0.85 * 255).toInt()),
                 value: valoresPorMes[i],
-                title: valoresPorMes[i] > 0 ? 'R\$ ${valoresPorMes[i].toStringAsFixed(2)}' : '',
+                title: valoresPorMes[i] > 0
+                    ? 'R\$ ${valoresPorMes[i].toStringAsFixed(2)}'
+                    : '',
                 radius: radius,
-                titleStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: Colors.black87),
+                titleStyle: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87),
                 titlePositionPercentageOffset: 0.55,
                 borderSide: BorderSide(color: Colors.white, width: 2),
               );
@@ -633,5 +672,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
     }
   }
-
 }

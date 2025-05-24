@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'secure_screen.dart';
 
 /// Widget que exibe o saldo do usuário com opção de mostrar/ocultar
 class SaldoCard extends StatelessWidget {
@@ -19,73 +21,43 @@ class SaldoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.white10
-            : Theme.of(context).primaryColor.withAlpha(25),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Center(
-        child: _buildContent(context),
-      ),
-    );
-  }
-
-  Widget _buildContent(BuildContext context) {
-    if (isLoading) {
-      return const SizedBox(
-        height: 32,
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (error != null) {
-      return Text(
-        error!,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.red,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          child: visivel
-              ? Text(
-                  'R\$ ${saldo.toStringAsFixed(2)}',
-                  key: const ValueKey('saldoVisivel'),
-                  style: _buildTextStyle(context),
-                )
-              : Text(
-                  '••••••',
-                  key: const ValueKey('saldoOculto'),
-                  style: _buildTextStyle(context),
+    return SecureScreen(
+      child: Card(
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'R\$ ${visivel ? NumberFormat.currency(locale: 'pt_BR', symbol: '').format(saldo) : '•••••••'}',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      visivel ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: onToggleVisibilidade,
+                  ),
+                ],
+              ),
+              if (isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (error != null)
+                Text(
+                  error!,
+                  style: const TextStyle(color: Colors.red),
                 ),
+            ],
+          ),
         ),
-        IconButton(
-          icon: Icon(visivel ? Icons.visibility : Icons.visibility_off),
-          tooltip: visivel ? 'Ocultar saldo' : 'Mostrar saldo',
-          onPressed: onToggleVisibilidade,
-        ),
-      ],
-    );
-  }
-
-  TextStyle _buildTextStyle(BuildContext context) {
-    return TextStyle(
-      fontWeight: FontWeight.bold,
-      fontSize: 36,
-      color: Theme.of(context).brightness == Brightness.dark
-          ? Colors.white
-          : Colors.black87,
+      ),
     );
   }
 }

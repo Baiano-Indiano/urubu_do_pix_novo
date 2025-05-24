@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:urubu_pix/screens/dashboard_screen.dart';
+import 'package:urubu_do_pix_novo/screens/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 
 void main() {

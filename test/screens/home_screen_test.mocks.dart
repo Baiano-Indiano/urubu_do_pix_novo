@@ -8,8 +8,8 @@ import 'dart:io' as _i4;
 import 'dart:ui' as _i6;
 
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:urubu_pix/services/api_service.dart' as _i2;
-import 'package:urubu_pix/services/auth_service.dart' as _i5;
+import 'package:urubu_do_pix_novo/services/api_service.dart' as _i2;
+import 'package:urubu_do_pix_novo/services/auth_service.dart' as _i5;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values

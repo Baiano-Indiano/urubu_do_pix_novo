@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:urubu_pix/main.dart';
+import 'package:urubu_do_pix_novo/main.dart';
 import '../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,21 +16,42 @@ class ProfileScreen extends StatefulWidget {
 
 class _TelefoneInputFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    var text = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (text.length > 11) text = text.substring(0, 11);
-    String formatted = text;
-    if (text.length >= 2) {
-      formatted = '(${text.substring(0, 2)}';
-      if (text.length >= 7) {
-        formatted += ') ${text.substring(2, 7)}-${text.substring(7)}';
-      } else if (text.length > 2) {
-        formatted += ') ${text.substring(2)}';
-      }
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (text.isEmpty) {
+      return newValue.copyWith(text: '');
     }
+
+    if (text.length <= 2) {
+      return TextEditingValue(
+        text: '($text',
+        selection: TextSelection.collapsed(offset: text.length + 1),
+      );
+    }
+
+    if (text.length <= 7) {
+      return TextEditingValue(
+        text: '(${text.substring(0, 2)}) ${text.substring(2)}',
+        selection: TextSelection.collapsed(offset: text.length + 4),
+      );
+    }
+
+    if (text.length <= 11) {
+      return TextEditingValue(
+        text:
+            '(${text.substring(0, 2)}) ${text.substring(2, 7)}-${text.substring(7)}',
+        selection: TextSelection.collapsed(offset: text.length + 5),
+      );
+    }
+
     return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
+      text:
+          '(${text.substring(0, 2)}) ${text.substring(2, 7)}-${text.substring(7, 11)}',
+      selection: TextSelection.collapsed(offset: 16),
     );
   }
 }
@@ -113,7 +134,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Atualiza no backend Supabase
       final userId = ApiService().usuarioAtual;
       if (userId != null) {
-        await ApiService().updateUserProfile(userId: userId, nome: nome, telefone: telefone, foto: _fotoUrl);
+        await ApiService().updateUserProfile(
+            userId: userId, nome: nome, telefone: telefone, foto: _fotoUrl);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -129,8 +151,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-
-
   @override
   void dispose() {
     _nomeController.dispose();
@@ -141,7 +161,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAndUploadPhoto() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked == null) return;
     final userId = ApiService().usuarioAtual;
     if (userId == null) return;
@@ -157,12 +178,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _fotoUrl = url;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Foto atualizada!')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Foto atualizada!')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao enviar foto: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao enviar foto: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -232,7 +255,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           controller: controller,
           decoration: InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
@@ -291,12 +315,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 64,
-                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primaryContainer,
                         backgroundImage: _fotoUrl != null
                             ? NetworkImage(_fotoUrl!)
-                            : (_fotoPath != null ? FileImage(File(_fotoPath!)) : null) as ImageProvider<Object>?,
+                            : (_fotoPath != null
+                                ? FileImage(File(_fotoPath!))
+                                : null) as ImageProvider<Object>?,
                         child: (_fotoUrl == null && _fotoPath == null)
-                            ? const Icon(Icons.person, size: 64, color: Colors.white)
+                            ? const Icon(Icons.person,
+                                size: 64, color: Colors.white)
                             : null,
                       ),
                       if (_isEditing)
@@ -309,7 +337,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.camera_alt, color: Colors.white),
+                              icon: const Icon(Icons.camera_alt,
+                                  color: Colors.white),
                               onPressed: _pickAndUploadPhoto,
                             ),
                           ),
@@ -317,13 +346,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Informações do perfil
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -353,9 +383,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   if (_isEditing) ...[
                     ElevatedButton.icon(
                       onPressed: () {
@@ -391,13 +421,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                   const SizedBox(height: 32),
-                  
+
                   // Seção de preferências
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -451,10 +482,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ListTile(
                           leading: const Icon(Icons.lock),
                           title: const Text('Alterar senha'),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 16),
                           onTap: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Redirecionando para a tela de alteração de senha')),
+                              const SnackBar(
+                                  content: Text(
+                                      'Redirecionando para a tela de alteração de senha')),
                             );
                           },
                           contentPadding: EdgeInsets.zero,
@@ -462,13 +496,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.logout, color: Colors.red),
-                          title: const Text('Sair da conta', style: TextStyle(color: Colors.red)),
+                          title: const Text('Sair da conta',
+                              style: TextStyle(color: Colors.red)),
                           onTap: () {
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('Sair da conta'),
-                                content: const Text('Tem certeza que deseja sair da sua conta?'),
+                                content: const Text(
+                                    'Tem certeza que deseja sair da sua conta?'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
@@ -476,10 +512,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () {
-                                      Navigator.of(context).popUntil((route) => route.isFirst);
+                                      Navigator.of(context)
+                                          .popUntil((route) => route.isFirst);
                                       ApiService().logout();
                                     },
-                                    child: const Text('Sair', style: TextStyle(color: Colors.red)),
+                                    child: const Text('Sair',
+                                        style: TextStyle(color: Colors.red)),
                                   ),
                                 ],
                               ),
@@ -490,9 +528,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-          ],
-        ),
-      ),
+                ],
+              ),
+            ),
     );
   }
 }

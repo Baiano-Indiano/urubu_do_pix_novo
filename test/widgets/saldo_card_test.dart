@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:urubu_pix/widgets/saldo_card.dart';
+import 'package:urubu_do_pix_novo/widgets/saldo_card.dart';
 
 void main() {
   testWidgets('Exibe loading quando isLoading é true', (WidgetTester tester) async {

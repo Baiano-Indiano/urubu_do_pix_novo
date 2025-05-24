@@ -4,6 +4,7 @@ import '../services/account_service.dart';
 import 'package:flutter/services.dart';
 import 'receipt_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/secure_screen.dart';
 
 // Formatador de CPF
 class CpfInputFormatter extends TextInputFormatter {
@@ -55,7 +56,7 @@ class _TransferScreenState extends State<TransferScreen> {
   final TextEditingController _recipientController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final AccountService _accountService = AccountService();
-  
+
   String _selectedPixType = 'cpf';
   double _saldo = 0.0;
   bool _isLoading = true;
@@ -72,7 +73,7 @@ class _TransferScreenState extends State<TransferScreen> {
     _fetchSaldoEHistorico();
     _fetchCotacoes();
     _loadFavoritos();
-    
+
     // Adiciona listener para buscar conta quando o campo de destinatário perder o foco
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus && _recipientController.text.isNotEmpty) {
@@ -80,7 +81,7 @@ class _TransferScreenState extends State<TransferScreen> {
       }
     });
   }
-  
+
   @override
   void dispose() {
     _focusNode.dispose();
@@ -95,16 +96,16 @@ class _TransferScreenState extends State<TransferScreen> {
   }
 
   // Método removido pois a validação é feita diretamente no validador do campo
-  
+
   Future<void> _searchRecipient() async {
     final searchTerm = _recipientController.text.trim();
     if (searchTerm.isEmpty) {
       setState(() => _recipientAccount = null);
       return;
     }
-    
+
     setState(() => _isSearching = true);
-    
+
     try {
       final account = await _accountService.searchAccount(searchTerm);
       setState(() {
@@ -120,26 +121,29 @@ class _TransferScreenState extends State<TransferScreen> {
       setState(() => _isSearching = false);
     }
   }
-  
+
   Future<void> _transferir() async {
     if (!_formKey.currentState!.validate()) return;
     if (_recipientAccount == null) return;
-    
+
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
       setState(() => _errorMessage = 'Usuário não autenticado');
       return;
     }
-    
+
     if (userId == _recipientAccount!['user_id']) {
-      setState(() => _errorMessage = 'Não é possível transferir para a própria conta');
+      setState(() =>
+          _errorMessage = 'Não é possível transferir para a própria conta');
       return;
     }
-    
-    final valor = double.parse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) / 100;
-    
+
+    final valor =
+        double.parse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) /
+            100;
+
     setState(() => _isLoading = true);
-    
+
     try {
       final result = await _accountService.transfer(
         fromUserId: userId,
@@ -147,16 +151,17 @@ class _TransferScreenState extends State<TransferScreen> {
         amount: valor,
         description: 'Transferência via PIX',
       );
-      
+
       if (result['success'] == true) {
         // Atualiza o saldo local
         await _fetchSaldoEHistorico();
-        
+
         // Navega para o comprovante
         if (mounted) {
           final now = DateTime.now();
-          final formattedDate = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-          
+          final formattedDate =
+              '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
           if (mounted) {
             Navigator.push(
               context,
@@ -171,14 +176,15 @@ class _TransferScreenState extends State<TransferScreen> {
               ),
             );
           }
-          
+
           // Limpa o formulário
           _recipientController.clear();
           _amountController.clear();
           setState(() => _recipientAccount = null);
         }
       } else {
-        setState(() => _errorMessage = result['error'] ?? 'Erro ao realizar transferência');
+        setState(() => _errorMessage =
+            result['error'] ?? 'Erro ao realizar transferência');
       }
     } catch (e) {
       setState(() => _errorMessage = 'Erro ao realizar transferência: $e');
@@ -203,7 +209,7 @@ class _TransferScreenState extends State<TransferScreen> {
     try {
       final apiService = ApiService();
       final saldo = await apiService.fetchSaldo();
-      
+
       if (mounted) {
         setState(() {
           _saldo = saldo;
@@ -222,13 +228,15 @@ class _TransferScreenState extends State<TransferScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transferência PIX'),
+    return SecureScreen(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Transferência PIX'),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildBody(context),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildBody(context),
     );
   }
 
@@ -269,7 +277,9 @@ class _TransferScreenState extends State<TransferScreen> {
                 if (value == null || value.isEmpty) {
                   return 'Informe o valor da transferência';
                 }
-                final valor = double.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
+                final valor =
+                    double.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ??
+                        0.0;
                 if (valor < 50) {
                   return 'O valor mínimo é R\$ 0,50';
                 }
@@ -279,9 +289,9 @@ class _TransferScreenState extends State<TransferScreen> {
                 return null;
               },
             ),
-            
+
             const SizedBox(height: 24.0),
-            
+
             // Seletor de tipo de chave PIX
             DropdownButtonFormField<String>(
               value: _selectedPixType,
@@ -306,9 +316,9 @@ class _TransferScreenState extends State<TransferScreen> {
                 }
               },
             ),
-            
+
             const SizedBox(height: 16.0),
-            
+
             // Campo de destinatário
             TextFormField(
               controller: _recipientController,
@@ -351,7 +361,7 @@ class _TransferScreenState extends State<TransferScreen> {
                 return null;
               },
             ),
-            
+
             // Informações do destinatário
             if (_recipientAccount != null) ...[
               const SizedBox(height: 16.0),
@@ -367,19 +377,21 @@ class _TransferScreenState extends State<TransferScreen> {
                       ),
                       const SizedBox(height: 8.0),
                       if (_recipientAccount!['cpf'] != null)
-                        _buildInfoRow('CPF', _formatCpf(_recipientAccount!['cpf'])),
+                        _buildInfoRow(
+                            'CPF', _formatCpf(_recipientAccount!['cpf'])),
                       if (_recipientAccount!['email'] != null)
                         _buildInfoRow('E-mail', _recipientAccount!['email']),
                       if (_recipientAccount!['telefone'] != null)
-                        _buildInfoRow('Telefone', _formatPhone(_recipientAccount!['telefone'])),
+                        _buildInfoRow('Telefone',
+                            _formatPhone(_recipientAccount!['telefone'])),
                     ],
                   ),
                 ),
               ),
             ],
-            
+
             const SizedBox(height: 24.0),
-            
+
             // Botão de transferir
             ElevatedButton(
               onPressed: _isLoading || _isSearching || _recipientAccount == null
@@ -405,17 +417,18 @@ class _TransferScreenState extends State<TransferScreen> {
                       style: TextStyle(fontSize: 16),
                     ),
             ),
-            
+
             // Saldo disponível
             const SizedBox(height: 16.0),
             Text(
               'Saldo disponível: R\$ ${_saldo.toStringAsFixed(2)}',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.textTheme.bodySmall?.color?.withAlpha((255 * 0.8).round()),
+                color: theme.textTheme.bodySmall?.color
+                    ?.withAlpha((255 * 0.8).round()),
               ),
             ),
-            
+
             // Mensagem de erro
             if (_errorMessage != null) ...[
               const SizedBox(height: 16.0),
@@ -432,7 +445,7 @@ class _TransferScreenState extends State<TransferScreen> {
       ),
     );
   }
-  
+
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -447,7 +460,7 @@ class _TransferScreenState extends State<TransferScreen> {
       ),
     );
   }
-  
+
   String _getRecipientFieldLabel() {
     switch (_selectedPixType) {
       case 'cpf':
@@ -460,7 +473,7 @@ class _TransferScreenState extends State<TransferScreen> {
         return 'Chave PIX';
     }
   }
-  
+
   String _getRecipientHint() {
     switch (_selectedPixType) {
       case 'cpf':
@@ -473,7 +486,7 @@ class _TransferScreenState extends State<TransferScreen> {
         return '';
     }
   }
-  
+
   TextInputType _getKeyboardType() {
     switch (_selectedPixType) {
       case 'cpf':
@@ -485,14 +498,14 @@ class _TransferScreenState extends State<TransferScreen> {
         return TextInputType.text;
     }
   }
-  
+
   String _formatCpf(String cpf) {
     if (cpf.length != 11) return cpf;
     return '${cpf.substring(0, 3)}.${cpf.substring(3, 6)}.${cpf.substring(6, 9)}-${cpf.substring(9)}';
   }
-  
+
   String _formatPhone(String phone) {
-    final digits = phone.replaceAll(RegExp(r'[^0-9]'), ''); 
+    final digits = phone.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length == 11) {
       return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
     } else if (digits.length == 10) {

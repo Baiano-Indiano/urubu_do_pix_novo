@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:urubu_pix/utils/csv_utils.dart';
-import 'package:urubu_pix/utils/pdf_utils.dart';
+import 'package:urubu_do_pix_novo/utils/csv_utils.dart';
+import 'package:urubu_do_pix_novo/utils/pdf_utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';

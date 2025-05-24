@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:provider/provider.dart';
-import 'package:urubu_pix/screens/home_screen.dart';
-import 'package:urubu_pix/services/api_service.dart';
-import 'package:urubu_pix/services/auth_service.dart';
+import 'package:urubu_do_pix_novo/screens/home_screen.dart';
+import 'package:urubu_do_pix_novo/services/api_service.dart';
+import 'package:urubu_do_pix_novo/services/auth_service.dart';
 
 // Importa os mocks gerados
 import 'home_screen_test.mocks.dart';

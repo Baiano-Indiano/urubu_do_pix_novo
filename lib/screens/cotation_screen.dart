@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:urubu_pix/services/api_service.dart' show ApiService, logDebug;
+import 'package:urubu_do_pix_novo/services/api_service.dart' show ApiService, logDebug;
 import '../widgets/currency_card.dart';
 
 class CotationScreen extends StatefulWidget {

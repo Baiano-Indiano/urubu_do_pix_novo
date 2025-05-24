@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/biometric_service.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
@@ -13,11 +14,55 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _biometricService = BiometricService();
+  bool _biometriaDisponivel = false;
+
   @override
   void initState() {
     super.initState();
     _identificadorController.addListener(() => setState(() {}));
     _senhaController.addListener(() => setState(() {}));
+    _verificarBiometria();
+  }
+
+  Future<void> _verificarBiometria() async {
+    final disponivel = await _biometricService.isBiometricAvailable();
+    final habilitada = await _biometricService.isBiometricEnabled();
+    if (mounted) {
+      setState(() {
+        _biometriaDisponivel = disponivel && habilitada;
+      });
+    }
+  }
+
+  Future<void> _autenticarComBiometria() async {
+    try {
+      final sucesso = await _biometricService.authenticate();
+      if (sucesso && mounted) {
+        // Navega para a tela inicial
+        if (!context.mounted) return;
+        final navigator = Navigator.of(context);
+        if (!context.mounted) return;
+        navigator.pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const HomeScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro ao autenticar com biometria'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -73,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final api = ApiService();
       final success = await api.login(identificador, senha);
       if (!mounted) return;
-      
+
       if (success) {
         if (!context.mounted) return;
         final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -82,16 +127,18 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Text('Login realizado com sucesso!'),
           backgroundColor: Colors.green,
         ));
-        
+
         await Future.delayed(const Duration(milliseconds: 700));
         if (!context.mounted) return;
-        
+
         final navigator = Navigator.of(context);
         if (!context.mounted) return;
         navigator.pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const HomeScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
           ),
@@ -143,6 +190,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 40),
+
+              if (_biometriaDisponivel) ...[
+                IconButton(
+                  icon: const Icon(Icons.fingerprint, size: 50),
+                  onPressed: _autenticarComBiometria,
+                ),
+                const Text(
+                  'Entrar com biometria',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 32),
+                const Text('ou', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 32),
+              ],
+
               // Toggle entre CPF e E-mail
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -229,12 +291,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (!context.mounted) return;
                   navigator.push(
                     PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) => const RegisterScreen(),
-                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          const RegisterScreen(),
+                      transitionsBuilder:
+                          (context, animation, secondaryAnimation, child) {
                         const begin = Offset(1.0, 0.0);
                         const end = Offset.zero;
                         const curve = Curves.ease;
-                        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                        var tween = Tween(begin: begin, end: end)
+                            .chain(CurveTween(curve: curve));
                         return SlideTransition(
                           position: animation.drive(tween),
                           child: child,

@@ -12,31 +12,41 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   // Controladores para os campos de texto
-  final TextEditingController _identificadorController = TextEditingController();
+  final TextEditingController _identificadorController =
+      TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
-  final TextEditingController _confirmarSenhaController = TextEditingController();
+  final TextEditingController _confirmarSenhaController =
+      TextEditingController();
   final TextEditingController _cpfController = TextEditingController();
   final TextEditingController _telefoneController = TextEditingController();
   final TextEditingController _nomeController = TextEditingController();
-  
+
   // Formatadores para campos com máscara
-  final maskCpf = MaskTextInputFormatter(mask: '###.###.###-##', filter: {"#": RegExp(r'[0-9]')});
-  final maskCnpj = MaskTextInputFormatter(mask: '##.###.###/####-##', filter: {"#": RegExp(r'[0-9]')});
-  final maskPhone = MaskTextInputFormatter(mask: '(##) #####-####', filter: {"#": RegExp(r'[0-9]')});
-  
+  final maskCpf = MaskTextInputFormatter(
+      mask: '###.###.###-##', filter: {"#": RegExp(r'[0-9]')});
+  final maskCnpj = MaskTextInputFormatter(
+      mask: '##.###.###/####-##', filter: {"#": RegExp(r'[0-9]')});
+  final maskPhone = MaskTextInputFormatter(
+      mask: '(##) #####-####', filter: {"#": RegExp(r'[0-9]')});
+
   // Variáveis de estado
   String? _errorMessage;
-  String? _cpfError, _telefoneError, _nomeError, _emailError, _senhaError, _confirmarSenhaError;
+  String? _cpfError,
+      _telefoneError,
+      _nomeError,
+      _emailError,
+      _senhaError,
+      _confirmarSenhaError;
   bool _isLoading = false;
   bool _cadastroPorCpf = true;
   bool _isPessoaFisica = true;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _aceitouTermos = false;
-  
+
   // Chave do formulário para validação
   final _formKey = GlobalKey<FormState>();
-  
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nomeController.dispose();
     super.dispose();
   }
-  
+
   // Validações em tempo real
   void _validateIdentificador() {
     setState(() {
@@ -68,7 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailError = null;
         return;
       }
-      
+
       final text = _identificadorController.text.trim();
       if (_cadastroPorCpf) {
         if (_isPessoaFisica) {
@@ -93,34 +103,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     });
   }
-  
+
   void _validateSenha() {
     setState(() {
       if (_senhaController.text.isEmpty) {
         _senhaError = null;
         return;
       }
-      
+
       if (!isStrongPassword(_senhaController.text)) {
-        _senhaError = 'A senha deve ter pelo menos 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos';
+        _senhaError =
+            'A senha deve ter pelo menos 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos';
       } else {
         _senhaError = null;
       }
-      
+
       // Valida a confirmação de senha se já foi preenchida
       if (_confirmarSenhaController.text.isNotEmpty) {
         _validateConfirmarSenha();
       }
     });
   }
-  
+
   void _validateConfirmarSenha() {
     setState(() {
       if (_confirmarSenhaController.text.isEmpty) {
         _confirmarSenhaError = null;
         return;
       }
-      
+
       if (_confirmarSenhaController.text != _senhaController.text) {
         _confirmarSenhaError = 'As senhas não coincidem';
       } else {
@@ -128,14 +139,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     });
   }
-  
+
   void _validateNome() {
     setState(() {
       if (_nomeController.text.isEmpty) {
         _nomeError = null;
         return;
       }
-      
+
       if (!isValidName(_nomeController.text)) {
         _nomeError = 'Digite nome e sobrenome válidos';
       } else {
@@ -143,14 +154,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     });
   }
-  
+
   void _validateCpf() {
     setState(() {
       if (_cpfController.text.isEmpty) {
         _cpfError = null;
         return;
       }
-      
+
       if (!isValidCPF(_cpfController.text)) {
         _cpfError = 'CPF inválido';
       } else {
@@ -158,14 +169,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     });
   }
-  
+
   void _validateTelefone() {
     setState(() {
       if (_telefoneController.text.isEmpty) {
         _telefoneError = null;
         return;
       }
-      
+
       if (!isValidPhoneBR(_telefoneController.text)) {
         _telefoneError = 'Telefone inválido';
       } else {
@@ -182,16 +193,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _validateTelefone();
     _validateSenha();
     _validateConfirmarSenha();
-    
+
     // Verifica se há erros de validação
-    if (_emailError != null || 
-        _nomeError != null || 
-        _cpfError != null || 
-        _telefoneError != null || 
-        _senhaError != null || 
+    if (_emailError != null ||
+        _nomeError != null ||
+        _cpfError != null ||
+        _telefoneError != null ||
+        _senhaError != null ||
         _confirmarSenhaError != null ||
         !_aceitouTermos) {
-      
       setState(() {
         _errorMessage = 'Por favor, corrija os erros nos campos destacados.';
         if (!_aceitouTermos) {
@@ -206,12 +216,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final cpf = _cpfController.text.trim();
     final telefone = _telefoneController.text.trim();
     final nome = _nomeController.text.trim();
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-    
+
     try {
       // Mostra um indicador de progresso com mensagem
       showDialog(
@@ -226,14 +236,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 const Text('Processando seu cadastro...'),
                 const SizedBox(height: 8),
-                Text('Aguarde enquanto verificamos seus dados', 
-                     style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text('Aguarde enquanto verificamos seus dados',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
               ],
             ),
           );
         },
       );
-      
+
       // Realiza o cadastro
       final success = await ApiService().register(
         identificador,
@@ -243,33 +253,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
         telefone: telefone,
         isPessoaFisica: _isPessoaFisica,
       );
-      
+
       // Fecha o diálogo de progresso
       if (mounted && context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      
+
       if (!mounted) return;
-      
+
       if (success) {
         if (!context.mounted) return;
         final scaffoldMessenger = ScaffoldMessenger.of(context);
         final navigator = Navigator.of(context);
         if (!context.mounted) return;
-        
+
         // Mostra mensagem de sucesso
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('Cadastro realizado com sucesso!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          )
-        );
-        
+        scaffoldMessenger.showSnackBar(const SnackBar(
+          content: Text('Cadastro realizado com sucesso!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ));
+
         // Redireciona para a tela inicial após um breve atraso
         await Future.delayed(const Duration(milliseconds: 700));
         if (!context.mounted) return;
-        
+
         navigator.pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
@@ -284,55 +292,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (!context.mounted) return;
         final scaffoldMessenger = ScaffoldMessenger.of(context);
         if (!context.mounted) return;
-        
+
         // Mostra mensagem de erro
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text(_cadastroPorCpf 
-              ? (_isPessoaFisica ? 'Este CPF já está cadastrado.' : 'Este CNPJ já está cadastrado.') 
+        scaffoldMessenger.showSnackBar(SnackBar(
+          content: Text(_cadastroPorCpf
+              ? (_isPessoaFisica
+                  ? 'Este CPF já está cadastrado.'
+                  : 'Este CNPJ já está cadastrado.')
               : 'Este e-mail já está cadastrado.'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          )
-        );
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ));
       }
     } catch (e) {
       // Fecha o diálogo de progresso se estiver aberto
       if (mounted && context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-      
+
       if (!mounted) return;
       if (!context.mounted) return;
-      
+
       // Mostra mensagem de erro detalhada
       final scaffoldMessenger = ScaffoldMessenger.of(context);
       if (!context.mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Erro ao processar o cadastro:'),
-              const SizedBox(height: 4),
-              Text(e.toString(), style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        )
-      );
-      
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Erro ao processar o cadastro:'),
+            const SizedBox(height: 4),
+            Text(e.toString(), style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ));
+
       setState(() {
         if (_cadastroPorCpf) {
-          _emailError = _isPessoaFisica 
-              ? 'Este CPF já está cadastrado ou é inválido.' 
+          _emailError = _isPessoaFisica
+              ? 'Este CPF já está cadastrado ou é inválido.'
               : 'Este CNPJ já está cadastrado ou é inválido.';
         } else {
           _emailError = 'Este e-mail já está cadastrado.';
@@ -367,7 +373,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const Center(
                     child: Text(
                       'Crie sua conta',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -379,9 +386,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Tipo de cadastro
-                  const Text('Tipo de cadastro:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Tipo de cadastro:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -414,10 +422,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                   ),
-                  
+
                   // Tipo de pessoa (apenas se for CPF/CNPJ)
-                  if (_cadastroPorCpf) ...[                    const SizedBox(height: 16),
-                    const Text('Tipo de pessoa:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  if (_cadastroPorCpf) ...[
+                    const SizedBox(height: 16),
+                    const Text('Tipo de pessoa:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -451,26 +461,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ],
                     ),
                   ],
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Campo de identificador (CPF/CNPJ ou E-mail)
                   TextField(
                     controller: _identificadorController,
-                    inputFormatters: _cadastroPorCpf 
-                        ? [_isPessoaFisica ? maskCpf : maskCnpj] 
+                    inputFormatters: _cadastroPorCpf
+                        ? [_isPessoaFisica ? maskCpf : maskCnpj]
                         : null,
                     decoration: InputDecoration(
-                      labelText: _cadastroPorCpf 
-                          ? (_isPessoaFisica ? 'CPF' : 'CNPJ') 
+                      labelText: _cadastroPorCpf
+                          ? (_isPessoaFisica ? 'CPF' : 'CNPJ')
                           : 'E-mail',
-                      prefixIcon: Icon(_cadastroPorCpf 
-                          ? Icons.badge_outlined 
+                      prefixIcon: Icon(_cadastroPorCpf
+                          ? Icons.badge_outlined
                           : Icons.email_outlined),
                       border: const OutlineInputBorder(),
                       errorText: _emailError,
-                      hintText: _cadastroPorCpf 
-                          ? (_isPessoaFisica ? '000.000.000-00' : '00.000.000/0000-00') 
+                      hintText: _cadastroPorCpf
+                          ? (_isPessoaFisica
+                              ? '000.000.000-00'
+                              : '00.000.000/0000-00')
                           : 'seu.email@exemplo.com',
                     ),
                     keyboardType: _cadastroPorCpf
@@ -479,7 +491,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Nome completo
                   TextField(
                     controller: _nomeController,
@@ -494,7 +506,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // CPF
                   TextField(
                     controller: _cpfController,
@@ -510,7 +522,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Telefone
                   TextField(
                     controller: _telefoneController,
@@ -526,7 +538,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Senha
                   TextField(
                     controller: _senhaController,
@@ -535,7 +547,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
                           setState(() {
@@ -550,14 +564,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.next,
                   ),
-                  if (_senhaError == null) ...[                    const SizedBox(height: 4),
+                  if (_senhaError == null) ...[
+                    const SizedBox(height: 4),
                     Text(
                       'A senha deve conter letras maiúsculas, minúsculas, números e símbolos',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                   const SizedBox(height: 16),
-                  
+
                   // Confirmar senha
                   TextField(
                     controller: _confirmarSenhaController,
@@ -566,7 +581,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                          _obscureConfirmPassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
                         ),
                         onPressed: () {
                           setState(() {
@@ -582,7 +599,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textInputAction: TextInputAction.done,
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Termos e condições
                   Row(
                     children: [
@@ -608,12 +625,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 const TextSpan(text: 'Li e concordo com os '),
                                 TextSpan(
                                   text: 'Termos de Uso',
-                                  style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      color: Theme.of(context).primaryColor,
+                                      fontWeight: FontWeight.bold),
                                 ),
                                 const TextSpan(text: ' e '),
                                 TextSpan(
                                   text: 'Política de Privacidade',
-                                  style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      color: Theme.of(context).primaryColor,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -623,9 +644,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Mensagem de erro
-                  if (_errorMessage != null) ...[                    Container(
+                  if (_errorMessage != null) ...[
+                    Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.red[50],
@@ -647,7 +669,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
-                  
+
                   // Botão de cadastro
                   SizedBox(
                     width: double.infinity,
@@ -665,11 +687,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: 24,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
-                          : const Text('CRIAR CONTA', style: TextStyle(fontSize: 16)),
+                          : const Text('CRIAR CONTA',
+                              style: TextStyle(fontSize: 16)),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Link para login
                   Center(
                     child: GestureDetector(
@@ -685,7 +708,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const TextSpan(text: 'Já tem uma conta? '),
                             TextSpan(
                               text: 'Faça login',
-                              style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: Theme.of(context).primaryColor,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
