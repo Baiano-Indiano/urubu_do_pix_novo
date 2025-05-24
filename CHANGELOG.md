@@ -5,50 +5,76 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/spec/v2.0.0.html).
 
-## [Não Publicado]
+## [Próxima Versão]
 ### Adicionado
-- Documentação inicial do projeto
-- Guia de contribuição
-- Código de conduta
+- Suporte a transferências internacionais
+- Integração com carteiras digitais
+- Novos temas personalizáveis
+
+### Melhorado
+- Desempenho das consultas ao banco de dados
+- Feedback visual durante as transações
+- Documentação da API
+
+---
+
+## [1.2.0] - 2025-05-24
+### Adicionado
+- Sistema de transferência PIX aprimorado
+- Suporte a múltiplas moedas
+- Conversão automática de valores
+- Novos gráficos de análise financeira
+
+### Melhorado
+- Segurança das transações
+- Validação em tempo real
+- Feedback visual para o usuário
+- Desempenho geral do aplicativo
+
+### Corrigido
+- Problemas de concorrência em transferências
+- Exibição de saldo em tempo real
+- Validação de formulários
+- Problemas de internacionalização
 
 ---
 
 ## [1.1.0] - 2025-05-20
 ### Adicionado
-- Suporte a notificações locais para transações
-- Novos ícones e melhorias na interface do usuário
-- Documentação detalhada para desenvolvedores
+- Suporte a notificações locais
+- Novos ícones e temas
+- Documentação para desenvolvedores
 
-### Alterado
-- Melhorias na performance de carregamento de transações
-- Atualização das dependências do projeto
-- Refatoração da arquitetura para melhor manutenção
+### Melhorado
+- Performance de carregamento
+- Gerenciamento de estado
+- Experiência do usuário
 
 ### Corrigido
-- Problema de exibição de saldo em dispositivos com tema escuro
-- Validação de formulários na tela de transferência
-- Correção de vazamento de memória na tela de histórico
+- Exibição em tema escuro
+- Validação de formulários
+- Vazamentos de memória
 
 ---
-
 ## [1.0.0] - 2025-04-15
 ### Adicionado
-- Versão inicial do aplicativo Urubu PIX
-- Autenticação de usuários
-- Dashboard com visão geral das finanças
-- Transferências PIX (CPF, Chave Aleatória, Email, Telefone)
-- Histórico de transações com filtros
-- Perfil do usuário com opções de personalização
-- Geração de comprovantes em PDF
-- Suporte a temas claro e escuro
-- Internacionalização (pt-BR e en-US)
+- Versão inicial do Urubu PIX
+- Autenticação segura
+- Dashboard financeiro
+- Transferências PIX
+- Histórico de transações
+- Perfil do usuário
+- Comprovantes em PDF
+- Temas claro/escuro
+- Suporte a pt-BR e en-US
 
 ### Dependências Iniciais
-- Flutter 3.0.0+
+- Flutter 3.16.0+
 - Dart 3.0.0+
-- Provider para gerenciamento de estado
-- HTTP para requisições de API
-- Shared Preferences para armazenamento local
+- Supabase para backend
+- Provider para estado
+- HTTP para APIs
+- Shared Preferences
 - PDF para geração de comprovantes
 - FL Chart para gráficos financeiros
 

@@ -84,24 +84,25 @@ bool isValidPhoneBR(String phone) {
   // Remove caracteres não numéricos
   final cleaned = phone.replaceAll(RegExp(r'[^0-9]'), '');
   
-  // Verifica se tem entre 10 e 11 dígitos
-  if (cleaned.length < 10 || cleaned.length > 11) return false;
+  // Para celular, deve ter 11 dígitos (2 DDD + 9 + 8 dígitos)
+  if (cleaned.length != 11) return false;
   
-  // Verifica se o DDD é válido (11 a 99, exceto 20, 23, 25, 26, 29, 30, 36, 39, 40-49, 70, 80-89, 90-99)
+  // Verifica se o DDD é válido (11 a 99, exceto os que não existem)
   final ddd = int.parse(cleaned.substring(0, 2));
-  if (ddd < 11 || ddd > 99 || 
-      [20, 23, 25, 26, 29, 30, 36, 39].contains(ddd) ||
-      (ddd >= 40 && ddd <= 49) ||
-      ddd == 70 ||
-      (ddd >= 80 && ddd <= 99)) {
+  if (ddd < 11 || ddd > 99) return false;
+  
+  // Verifica se o nono dígito é 9 (padrão para celular)
+  if (cleaned[2] != '9') {
     return false;
   }
   
-  // Verifica o nono dígito (se houver) - deve ser 9 para celulares
-  if (cleaned.length == 11 && cleaned[2] != '9') {
+  // Verifica se os próximos dígitos são válidos (não podem ser todos iguais)
+  final phoneNumber = cleaned.substring(2);
+  if (RegExp(r'^(\d)\1+$').hasMatch(phoneNumber)) {
     return false;
   }
   
+  // Se passou por todas as validações, o número é válido
   return true;
 }
 

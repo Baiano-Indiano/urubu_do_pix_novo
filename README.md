@@ -1,9 +1,10 @@
 # 🏦 Urubu PIX - Banco Digital
 
-[![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev/)
-[![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.16.0-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Dart](https://img.shields.io/badge/Dart-3.0.0-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-181818?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Test Status](https://img.shields.io/badge/tests-passing-brightgreen?style=for-the-badge)](https://github.com/seu-usuario/urubu_pix/actions)
+[![Status: Em Desenvolvimento](https://img.shields.io/badge/Status-Em%20Desenvolvimento-orange?style=for-the-badge)]()
 
 Um aplicativo de banco digital moderno desenvolvido em Flutter, oferecendo uma solução completa para gerenciamento financeiro pessoal, com foco em transferências via PIX, histórico de transações e visualização de saldo em tempo real.
 
@@ -13,35 +14,58 @@ Um aplicativo de banco digital moderno desenvolvido em Flutter, oferecendo uma s
   - Visualização de saldo em tempo real
   - Extrato detalhado de transações
   - Perfil do usuário personalizável
+  - Atualização automática de saldo
 
 - 🔄 **Operações Financeiras**
-  - Transferências PIX (CPF, Chave Aleatória, Email, Telefone)
-  - Histórico de transações com filtros
+  - Transferências PIX instantâneas
+  - Busca de destinatários por CPF, email ou telefone
+  - Histórico de transações detalhado
   - Comprovantes de transferência
+  - Conversão automática de moedas
 
-- 📊 **Dashboard Intuitivo**
-  - Gráficos de movimentação financeira
-  - Visão geral das despesas e receitas
-  - Categorização de transações
+- 🏦 **Integração Bancária**
+  - Conexão segura via Supabase
+  - Transações em tempo real
+  - Sincronização automática de dados
+  - Backup em nuvem seguro
 
-- 🔒 **Segurança**
-  - Autenticação segura
-  - Biometria e reconhecimento facial
-  - Confirmação em duas etapas
+- 🔒 **Segurança Avançada**
+  - Autenticação JWT
+  - Criptografia de ponta a ponta
+  - Validação em tempo real
+  - Proteção contra fraudes
+  - Logs de auditoria detalhados
 
-- 🌐 **Acessibilidade**
-  - Suporte a temas claro/escuro
-  - Interface responsiva para diferentes tamanhos de tela
-  - Suporte a múltiplos idiomas
+- 🌐 **Experiência do Usuário**
+  - Interface moderna e intuitiva
+  - Tema escuro/light
+  - Animações fluidas
+  - Feedback visual imediato
 
 ## 🚀 Começando
 
 ### Pré-requisitos
 
-- Flutter SDK (versão 3.0.0 ou superior)
-- Dart SDK (versão 3.0.0 ou superior)
+- Flutter SDK 3.16.0 ou superior
+- Dart SDK 3.0.0 ou superior
+- Node.js 16.x ou superior (para o Supabase CLI)
+- Conta no [Supabase](https://supabase.com/)
 - Android Studio / Xcode (para desenvolvimento móvel)
-- VS Code ou Android Studio (recomendado para desenvolvimento)
+- VS Code (recomendado) com extensões Flutter e Dart
+
+### Configuração do Ambiente
+
+1. **Configuração do Supabase**
+   - Crie um novo projeto em [app.supabase.com](https://app.supabase.com/)
+   - Configure as tabelas necessárias (veja em `supabase/migrations`)
+   - Obtenha as chaves de API nas configurações do projeto
+
+2. **Variáveis de Ambiente**
+   Crie um arquivo `.env` na raiz do projeto com:
+   ```
+   SUPABASE_URL=sua_url_do_supabase
+   SUPABASE_ANON_KEY=sua_chave_anonima
+   ```
 
 ### Instalação
 
@@ -149,16 +173,68 @@ Link do Projeto: [https://github.com/seu-usuario/urubu_pix](https://github.com/s
 
 ## 📝 Notas de Atualização
 
+### 1.2.0 (2025-05-24)
+- 🚀 Sistema de Transferência PIX aprimorado
+- 🔒 Melhorias na segurança das transações
+- 🛠️ Correção de bugs críticos
+- 📱 Melhorias na experiência do usuário
+- ⚡ Otimizações de desempenho
+
 ### 1.1.0 (2025-05-20)
-- Adicionado suporte a notificações locais
-- Melhorias na interface do usuário
-- Otimização de desempenho
-- Correções de bugs menores
+- 🔔 Adicionado suporte a notificações locais
+- 🎨 Melhorias na interface do usuário
+- ⚡ Otimização de desempenho
+- 🐛 Correções de bugs menores
 
 ### 1.0.0 (2025-04-15)
-- Versão inicial do aplicativo
-- Funcionalidades básicas de transferência PIX
-- Dashboard com histórico de transações
-- Autenticação de usuários
-- Perfil do usuário
-- Geração de comprovantes em PDF
+- 🎉 Versão inicial do aplicativo
+- 💸 Funcionalidades básicas de transferência PIX
+- 📊 Dashboard com histórico de transações
+- 🔐 Autenticação de usuários
+- 👤 Perfil do usuário
+- 🖨️ Geração de comprovantes em PDF
+
+## 🛠️ Estrutura do Banco de Dados
+
+### Tabela: `users`
+- `user_id` (UUID, PK)
+- `email` (text, unique)
+- `nome` (text)
+- `cpf` (text, unique)
+- `telefone` (text)
+- `created_at` (timestamp)
+
+### Tabela: `accounts`
+- `user_id` (UUID, FK -> users.user_id)
+- `balance` (numeric)
+- `created_at` (timestamp)
+- `updated_at` (timestamp)
+
+### Tabela: `transfers`
+- `id` (UUID, PK)
+- `user_id` (UUID, FK -> users.user_id)
+- `destinatario` (text)
+- `valor` (double precision)
+- `moeda` (text)
+- `valor_original` (double precision)
+- `data` (timestamp with time zone)
+
+## 🤝 Contribuindo
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas alterações (`git commit -m 'Add some AmazingFeature'`)
+4. Faça o push da branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## ✉️ Contato
+
+Time de Desenvolvimento - [contato@urubupix.com](mailto:contato@urubupix.com)
+
+---
+
+Desenvolvido com ❤️ pelo Time Urubu PIX

@@ -1,54 +1,155 @@
-# Guia de Contribuição
+# 🚀 Guia de Contribuição para o Urubu PIX
 
-Obrigado por considerar contribuir para o Urubu PIX! Estamos felizes em tê-lo a bordo. Por favor, reserve um tempo para revisar este documento para que o processo de contribuição seja fácil e eficaz para todos os envolvidos.
+Obrigado por considerar contribuir para o Urubu PIX! Sua ajuda é essencial para tornar este projeto cada vez melhor. Este guia irá ajudá-lo a começar a contribuir de forma eficaz.
 
-## 📋 Antes de começar
+## 📋 Antes de Começar
 
-Antes de começar a contribuir, por favor:
-
-1. Leia nosso [Código de Conduta](CODE_OF_CONDUCT.md)
-2. Verifique se não há uma [issue](https://github.com/seu-usuario/urubu_pix/issues) existente para o que você pretende trabalhar
-3. Se você está começando, procure por issues com a tag `good first issue`
+1. 📖 Leia nosso [Código de Conduta](CODE_OF_CONDUCT.md)
+2. 🔍 Verifique as [issues abertas](https://github.com/seu-usuario/urubu_pix/issues) para encontrar algo para trabalhar
+3. 🏷️ Para iniciantes, procure por issues com a tag `good first issue`
+4. 💡 Se tiver uma nova ideia, abra uma issue para discutirmos antes de começar
 
 ## 🛠 Configuração do Ambiente
 
+### Requisitos Mínimos
+- Flutter 3.16.0+
+- Dart 3.0.0+
+- Git 2.30.0+
+- Android Studio / Xcode (para desenvolvimento móvel)
+- Node.js 16+ (para Supabase CLI)
+
+### Passo a Passo
+
 1. **Faça um fork** do repositório
-2. **Clone** o repositório para sua máquina local:
+2. **Clone** o repositório:
    ```bash
    git clone https://github.com/seu-usuario/urubu_pix.git
    cd urubu_pix
    ```
-3. **Instale as dependências**:
+3. **Configure as variáveis de ambiente**:
+   ```bash
+   cp .env.example .env
+   # Edite o .env com suas credenciais do Supabase
+   ```
+4. **Instale as dependências**:
    ```bash
    flutter pub get
    ```
-4. **Execute o aplicativo** para garantir que tudo está funcionando:
+5. **Execute o aplicativo**:
    ```bash
    flutter run
    ```
 
 ## 🔄 Fluxo de Trabalho
 
-1. **Crie uma branch** para sua feature ou correção:
+1. **Atualize seu fork**
    ```bash
-   git checkout -b feature/nome-da-sua-feature
-   # ou
-   git checkout -b fix/nome-da-correcao
+   git checkout main
+   git pull upstream main
    ```
 
-2. **Faça suas alterações** seguindo as diretrizes de estilo e testes
-
-3. **Execute os testes** para garantir que nada quebre:
+2. **Crie uma branch** descritiva:
    ```bash
+   git checkout -b tipo/descricao-curta
+   # Exemplos:
+   # git checkout -b feat/adiciona-login-biometrico
+   # git checkout -b fix/corrige-calculo-saldo
+   # git checkout -b docs/atualiza-readme
+   ```
+
+3. **Desenvolva sua feature**
+   - Siga as [diretrizes de estilo](#-diretrizes-de-código)
+   - Escreva testes para seu código
+   - Atualize a documentação quando necessário
+
+4. **Execute os testes**:
+   ```bash
+   # Testes unitários
    flutter test
+   
+   # Testes de integração
+   flutter test integration_test/
+   
+   # Verifique a formatação
+   flutter format --set-exit-if-changed .
+   
+   # Analise o código
+   flutter analyze
    ```
 
-4. **Faça o commit** das suas alterações:
+5. **Faça o commit** seguindo as convenções:
    ```bash
    git add .
    git commit -m "tipo(escopo): mensagem descritiva"
    ```
    
+   Tipos válidos: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+6. **Envie suas alterações**:
+   ```bash
+   git push origin sua-branch
+   ```
+
+7. **Abra um Pull Request**
+   - Preencha o template de PR
+   - Inclua capturas de tela quando aplicável
+   - Aguarde a revisão da equipe
+
+## 🎨 Diretrizes de Código
+
+### Estrutura
+- Siga a arquitetura em camadas (UI, Domínio, Dados, Infraestrutura)
+- Mantenha os componentes pequenos e focados
+- Use nomes descritivos para variáveis e funções
+
+### Estilo
+- Siga o [Effective Dart](https://dart.dev/guides/language/effective-dart/style)
+- Use 2 espaços para indentação
+- Linhas com no máximo 80 caracteres
+- Comente o código complexo
+
+### Testes
+- Cubra casos de sucesso e falha
+- Teste os estados da UI
+- Use mocks para dependências externas
+
+## 🤝 Processo de Revisão
+
+1. Um mantenedor revisará seu PR
+2. Podem ser solicitadas alterações
+3. Após aprovação, seu código será mesclado
+
+## 📝 Reportando Bugs
+
+Use o template de issue e inclua:
+- Descrição clara
+- Passos para reproduzir
+- Comportamento esperado vs atual
+- Capturas de tela (se aplicável)
+- Versão do app e dispositivo
+
+## 💡 Sugerindo Melhorias
+
+Adoramos novas ideias! Abra uma issue com:
+- Descrição detalhada
+- Casos de uso
+- Benefícios esperados
+- Exemplos de implementação (se possível)
+
+## 📚 Recursos Úteis
+
+- [Documentação do Flutter](https://flutter.dev/docs)
+- [Guia de Estilo Dart](https://dart.dev/guides/language/effective-dart)
+- [Supabase Docs](https://supabase.com/docs)
+- [Padrões de Commit](https://www.conventionalcommits.org/)
+
+## 🙌 Agradecimentos
+
+Obrigado por ajudar a melhorar o Urubu PIX! Sua contribuição faz a diferença 💜
+
+---
+
+*Este guia foi inspirado em vários projetos de código aberto populares.*
    Exemplos de mensagens de commit:
    - `feat(home): adiciona botão de atualizar saldo`
    - `fix(auth): corrige validação de senha`

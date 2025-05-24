@@ -73,6 +73,36 @@ class _TransferScreenState extends State<TransferScreen> {
     _fetchSaldoEHistorico();
     _fetchCotacoes();
     _loadFavoritos();
+    
+    // Temporário: Listar todos os usuários para depuração
+    print('=== INICIANDO DEPURAÇÃO ===');
+    _listAllUsers();
+  }
+  
+  // Função auxiliar para listar usuários
+  Future<void> _listAllUsers() async {
+    try {
+      print('Buscando lista de usuários...');
+      final response = await _accountService.supabase
+          .from('users')
+          .select('user_id, email, nome')
+          .order('email');
+          
+      print('=== LISTA DE USUÁRIOS CADASTRADOS ===');
+      if (response.isEmpty) {
+        print('Nenhum usuário encontrado no banco de dados');
+      } else {
+        print('Total de usuários: ${response.length}');
+        for (var user in response) {
+          print('--------------------------------');
+          print('ID: ${user['id']}');
+          print('Nome: ${user['nome']}');
+          print('E-mail: ${user['email']}');
+        }
+      }
+    } catch (e) {
+      print('Erro ao buscar usuários: $e');
+    }
 
     // Adiciona listener para buscar conta quando o campo de destinatário perder o foco
     _focusNode.addListener(() {
@@ -163,11 +193,15 @@ class _TransferScreenState extends State<TransferScreen> {
               '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
           if (mounted) {
+            // Usa o nome do destinatário ou um valor padrão seguro
+            final destinatario = _recipientAccount?['nome']?.toString() ?? 
+                               _recipientController.text;
+                                
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ReceiptScreen(
-                  destinatario: _recipientAccount!['nome'],
+                  destinatario: destinatario,
                   valorEmReais: valor,
                   data: formattedDate,
                   moeda: 'BRL',

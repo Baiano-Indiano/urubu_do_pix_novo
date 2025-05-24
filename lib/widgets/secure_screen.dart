@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class SecureScreen extends StatefulWidget {
   final Widget child;
@@ -29,13 +30,25 @@ class _SecureScreenState extends State<SecureScreen>
   Timer? _inactivityTimer;
   DateTime? _lastActivityTime;
   final _channel = const MethodChannel('flutter_secure');
+  bool _isWebOrDesktop = false;
   bool _isInBackground = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _setupSecurity();
+    
+    // Verifica se é web ou desktop
+    _isWebOrDesktop = kIsWeb || 
+        (defaultTargetPlatform != TargetPlatform.android &&
+         defaultTargetPlatform != TargetPlatform.iOS);
+    
+    if (!_isWebOrDesktop) {
+      _setupSecurity();
+    } else {
+      debugPrint('Modo seguro desativado para web/desktop');
+    }
+    
     _startInactivityTimer();
   }
 
@@ -81,20 +94,21 @@ class _SecureScreenState extends State<SecureScreen>
     }
   }
 
-  void _setupSecurity() {
-    if (widget.enableSecure) {
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.manual,
-        overlays: SystemUiOverlay.values,
-      );
+  Future<void> _setupSecurity() async {
+    if (!widget.enableSecure || _isWebOrDesktop) return;
 
+    try {
+      // Configura a tela segura
       if (widget.preventScreenshots) {
-        _channel.invokeMethod('enableSecure');
+        await _channel.invokeMethod('secureScreen');
       }
 
+      // Configura a proteção contra visualização em multitarefa
       if (widget.preventBackgroundPreview) {
-        _channel.invokeMethod('preventBackgroundPreview');
+        await _channel.invokeMethod('preventBackgroundPreview');
       }
+    } catch (e) {
+      debugPrint('Erro ao configurar segurança: $e');
     }
   }
 

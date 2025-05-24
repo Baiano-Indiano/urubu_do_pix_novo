@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
+
 class EncryptionService {
   // Codifica os dados em base64
   static String encrypt(String plaintext) {
@@ -7,7 +9,7 @@ class EncryptionService {
       final bytes = utf8.encode(plaintext);
       return base64Encode(bytes);
     } catch (e) {
-      print('Erro ao codificar: $e');
+      debugPrint('Erro ao codificar: $e');
       rethrow;
     }
   }
@@ -18,7 +20,7 @@ class EncryptionService {
       final bytes = base64Decode(ciphertext);
       return utf8.decode(bytes);
     } catch (e) {
-      print('Erro ao decodificar: $e');
+      debugPrint('Erro ao decodificar: $e');
       rethrow;
     }
   }

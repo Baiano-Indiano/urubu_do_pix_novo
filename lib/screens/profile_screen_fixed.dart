@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:urubu_do_pix_novo/main.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import '../services/app_state_manager.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import '../utils/validators.dart';
@@ -502,8 +503,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ],
                               onChanged: (mode) {
                                 if (mode != null) {
-                                  final state = _getAppState(context);
-                                  state?.setThemeMode(mode);
+                                  final appState = context.read<AppStateManager>();
+                                  appState.setThemeMode(mode);
                                 }
                               },
                             ),
@@ -566,12 +567,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// Helpers para pegar e definir o tema dinâmico
-MyAppState? _getAppState(BuildContext context) {
-  return context.findAncestorStateOfType<MyAppState>();
-}
-
+// Helper para obter o tema atual
 ThemeMode _getCurrentThemeMode(BuildContext context) {
-  final state = _getAppState(context);
-  return state?.themeMode ?? ThemeMode.system;
+  return context.read<AppStateManager>().themeMode;
 }

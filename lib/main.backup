@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/auth_service.dart';
 import 'services/security_checker_service.dart';
 import 'services/connectivity_service.dart';
-import 'services/app_state_manager.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -31,25 +29,10 @@ class MyNavigatorObserver extends NavigatorObserver {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Habilita logs detalhados
-  debugPrint = (String? message, {int? wrapWidth}) {
-    if (message != null) {
-      print(message);
-    }
-  };
 
   // Inicializa serviços
   final connectivityService = ConnectivityService();
   await connectivityService.initialize();
-  
-  // Ignora erros do flutter_secure para depuração
-  try {
-    const MethodChannel('flutter_secure')
-        .setMethodCallHandler((MethodCall call) async {});
-  } catch (e) {
-    debugPrint('Aviso: flutter_secure não está disponível para depuração');
-  }
 
   // Inicializa o Supabase
   await Supabase.initialize(
@@ -127,28 +110,33 @@ class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   static void setLocale(BuildContext context, Locale newLocale) {
-    context.read<AppStateManager>().setLocale(newLocale);
+    final MyAppState? state = context.findAncestorStateOfType<MyAppState>();
+    state?.setLocale(newLocale);
   }
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<MyApp> createState() => MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
-  late final AppStateManager _appStateManager;
+class MyAppState extends State<MyApp> {
+  Locale? _locale;
+  Locale? get locale => _locale;
+  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode get themeMode => _themeMode;
+  bool _isOnline = true;
 
   @override
   void initState() {
     super.initState();
-    _appStateManager = AppStateManager();
     _setupConnectivityListener();
   }
 
   void _setupConnectivityListener() {
     final connectivityService = ConnectivityService();
     connectivityService.connectionChangeController.stream.listen((isConnected) {
-      _appStateManager.setOnlineStatus(isConnected);
-      
+      setState(() {
+        _isOnline = isConnected;
+      });
       if (!isConnected && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -162,56 +150,79 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  @override
-  void dispose() {
-    super.dispose();
+  void setLocale(Locale locale) {
+    setState(() {
+      _locale = locale;
+    });
   }
+
+  void setThemeMode(ThemeMode mode) {
+    setState(() {
+      _themeMode = mode;
+    });
+  }
+
+  static MyAppState? of(BuildContext context) =>
+      context.findAncestorStateOfType<MyAppState>();
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => _appStateManager),
         ChangeNotifierProvider(create: (_) => AuthService()),
         Provider.value(value: ConnectivityService()),
       ],
-      child: Consumer<AppStateManager>(
-        builder: (context, appState, _) {
-          return MaterialApp(
-            navigatorObservers: [MyNavigatorObserver()],
-            locale: appState.locale,
-            onGenerateTitle: (context) =>
-                Localizations.localeOf(context).languageCode == 'en'
-                    ? 'Bank App'
-                    : 'App de Banco',
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: appState.themeMode,
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [
-              Locale('pt', ''),
-              Locale('en', ''),
-            ],
-            initialRoute: '/',
-            routes: {
-              '/': (context) => const LoginScreen(),
-              '/home': (context) => const HomeScreen(),
-              '/register': (context) => const RegisterScreen(),
-              '/profile': (context) => const ProfileScreen(),
-              '/settings': (context) => const SettingsScreen(),
-            },
-            builder: (context, child) {
-              return Banner(
-                location: BannerLocation.topEnd,
-                message: appState.isOnline ? '' : 'OFFLINE',
-                color: Colors.orange,
-                child: child ?? const SizedBox(),
-              );
-            },
+      child: MaterialApp(
+        navigatorObservers: [MyNavigatorObserver()],
+        locale: _locale,
+        onGenerateTitle: (context) =>
+            Localizations.localeOf(context).languageCode == 'en'
+                ? 'Bank App'
+                : 'App de Banco',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          brightness: Brightness.light,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+          scaffoldBackgroundColor: Colors.grey[50],
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          primarySwatch: Colors.blue,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+          scaffoldBackgroundColor: Colors.grey[900],
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+          ),
+        ),
+        themeMode: _themeMode,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('pt', ''),
+          Locale('en', ''),
+        ],
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const LoginScreen(),
+          '/home': (context) => const HomeScreen(),
+          '/register': (context) => const RegisterScreen(),
+          '/profile': (context) => const ProfileScreen(),
+          '/settings': (context) => const SettingsScreen(),
+        },
+        builder: (context, child) {
+          return Banner(
+            location: BannerLocation.topEnd,
+            message: _isOnline ? '' : 'OFFLINE',
+            color: Colors.orange,
+            child: child ?? const SizedBox(),
           );
         },
       ),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/biometric_service.dart';
+import '../services/api_service.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
-
+import '../routes/custom_route.dart';
 import '../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,53 +17,20 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _biometricService = BiometricService();
   bool _biometriaDisponivel = false;
+  final TextEditingController _identificadorController = TextEditingController();
+  final TextEditingController _senhaController = TextEditingController();
+  final maskCpf = MaskTextInputFormatter(
+    mask: '###.###.###-##',
+    filter: {"#": RegExp(r'[0-9]')},
+  );
+  bool _isLoading = false;
+  bool _loginPorCpf = true;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
-    _identificadorController.addListener(() => setState(() {}));
-    _senhaController.addListener(() => setState(() {}));
     _verificarBiometria();
-  }
-
-  Future<void> _verificarBiometria() async {
-    final disponivel = await _biometricService.isBiometricAvailable();
-    final habilitada = await _biometricService.isBiometricEnabled();
-    if (mounted) {
-      setState(() {
-        _biometriaDisponivel = disponivel && habilitada;
-      });
-    }
-  }
-
-  Future<void> _autenticarComBiometria() async {
-    try {
-      final sucesso = await _biometricService.authenticate();
-      if (sucesso && mounted) {
-        // Navega para a tela inicial
-        if (!context.mounted) return;
-        final navigator = Navigator.of(context);
-        if (!context.mounted) return;
-        navigator.pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const HomeScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erro ao autenticar com biometria'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   @override
@@ -72,245 +40,477 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  bool _isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.[a-zA-Z]{2,4}$');
-    return emailRegex.hasMatch(email);
+  Future<void> _verificarBiometria() async {
+    final disponivel = await _biometricService.isBiometricAvailable();
+    setState(() {
+      _biometriaDisponivel = disponivel;
+    });
   }
 
-  final TextEditingController _identificadorController =
-      TextEditingController();
-  final TextEditingController _senhaController = TextEditingController();
-  final maskCpf = MaskTextInputFormatter(
-      mask: '###.###.###-##', filter: {"#": RegExp(r'[0-9]')});
-  bool _isLoading = false;
-  String? _errorMessage;
-  bool _loginPorCpf = true;
+  Future<void> _autenticarComBiometria() async {
+    final autenticado = await _biometricService.authenticate();
+    if (autenticado && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    }
+  }
 
-  void _login(BuildContext context) async {
-    setState(() {
-      _errorMessage = null;
-    });
+  // Remove o método _validarCredenciais antigo, pois não é mais necessário
+
+  Future<void> _login() async {
+    if (_isLoading) return;
+    
+    // Validações
     final identificador = _identificadorController.text.trim();
     final senha = _senhaController.text;
-    String? errorMessage;
+    
+    // Validação do identificador (CPF ou E-mail)
+    if (identificador.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, informe seu CPF ou E-mail')),
+      );
+      return;
+    }
+    
     if (_loginPorCpf) {
       if (!isValidCPF(identificador)) {
-        errorMessage = 'Digite um CPF válido.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CPF inválido. Por favor, verifique os dados.')),
+        );
+        return;
       }
     } else {
       if (!isValidEmail(identificador)) {
-        errorMessage = 'Digite um e-mail válido.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('E-mail inválido. Por favor, verifique os dados.')),
+        );
+        return;
       }
     }
-    if (senha.isEmpty || senha.length < 4) {
-      errorMessage = 'A senha deve ter pelo menos 4 caracteres.';
-    }
-    if (errorMessage != null) {
-      setState(() {
-        _errorMessage = errorMessage;
-      });
+    
+    // Validação da senha
+    if (senha.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, informe sua senha')),
+      );
       return;
     }
-    setState(() {
-      _isLoading = true;
-    });
+    
+    if (senha.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A senha deve ter no mínimo 4 caracteres')),
+      );
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+
     try {
-      final api = ApiService();
-      final success = await api.login(identificador, senha);
+      final apiService = ApiService();
+      final loginSucesso = await apiService.login(identificador, senha);
+      
       if (!mounted) return;
-
-      if (success) {
-        if (!context.mounted) return;
-        final scaffoldMessenger = ScaffoldMessenger.of(context);
-        if (!context.mounted) return;
-        scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('Login realizado com sucesso!'),
-          backgroundColor: Colors.green,
-        ));
-
-        await Future.delayed(const Duration(milliseconds: 700));
-        if (!context.mounted) return;
-
-        final navigator = Navigator.of(context);
-        if (!context.mounted) return;
-        navigator.pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const HomeScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
+      
+      if (!loginSucesso) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('E-mail/CPF ou senha incorretos'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
           ),
         );
-      } else {
-        if (!context.mounted) return;
-        final scaffoldMessenger = ScaffoldMessenger.of(context);
-        if (!context.mounted) return;
-        scaffoldMessenger.showSnackBar(const SnackBar(
-          content: Text('CPF ou senha inválidos'),
-          backgroundColor: Colors.red,
-        ));
-        setState(() {
-          _errorMessage = 'CPF ou senha inválidos.';
-        });
+        return;
+      }
+      
+      // Se chegou aqui, o login foi bem-sucedido
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login realizado com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Aguarda um pouco para o usuário ver a mensagem antes de navegar
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        if (!mounted) return;
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      if (!context.mounted) return;
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-      if (!context.mounted) return;
-      scaffoldMessenger.showSnackBar(SnackBar(
-        content: Text('Erro: ${e.toString()}'),
-        backgroundColor: Colors.red,
-      ));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      
+      String mensagemErro = 'Erro ao fazer login. Tente novamente.';
+      if (e is AuthException) {
+        mensagemErro = e.message;
       }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(mensagemErro),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+      backgroundColor: isDark ? Colors.black : colorScheme.surface,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Urubu Pix',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 40),
-
-              if (_biometriaDisponivel) ...[
-                IconButton(
-                  icon: const Icon(Icons.fingerprint, size: 50),
-                  onPressed: _autenticarComBiometria,
-                ),
-                const Text(
-                  'Entrar com biometria',
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 32),
-                const Text('ou', style: TextStyle(color: Colors.grey)),
-                const SizedBox(height: 32),
-              ],
-
-              // Toggle entre CPF e E-mail
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(height: 32),
+              
+              // Logo e Título
+              Column(
                 children: [
-                  ChoiceChip(
-                    label: const Text('CPF'),
-                    selected: _loginPorCpf,
-                    onSelected: (v) {
-                      setState(() {
-                        _loginPorCpf = true;
-                        _identificadorController.clear();
-                      });
+                  TweenAnimationBuilder(
+                    tween: Tween<double>(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 800),
+                    builder: (context, double value, child) {
+                      return Opacity(
+                        opacity: value,
+                        child: Transform.scale(
+                          scale: value,
+                          child: child,
+                        ),
+                      );
                     },
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 64,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        RichText(
+                          text: TextSpan(
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              height: 1.1,
+                              letterSpacing: 1.2,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'URUBU',
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' DO PIX',
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  ChoiceChip(
-                    label: const Text('E-mail'),
-                    selected: !_loginPorCpf,
-                    onSelected: (v) {
-                      setState(() {
-                        _loginPorCpf = false;
-                        _identificadorController.clear();
-                      });
-                    },
+                  const SizedBox(height: 8),
+                  Text(
+                    'Seu banco digital completo',
+                    style: TextStyle(
+                      color: colorScheme.onSurface.withValues(alpha: 0.7 * 255),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _identificadorController,
-                inputFormatters: _loginPorCpf ? [maskCpf] : null,
-                decoration: InputDecoration(
-                  labelText: _loginPorCpf ? 'CPF' : 'E-mail',
-                  border: const OutlineInputBorder(),
+              
+              const SizedBox(height: 48),
+
+              // Formulário de login
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                keyboardType: _loginPorCpf
-                    ? TextInputType.number
-                    : TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _senhaController,
-                decoration: const InputDecoration(
-                  labelText: 'Senha',
-                  border: OutlineInputBorder(),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Título do formulário
+                      Text(
+                        'Acesse sua conta',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Faça login para continuar',
+                        style: TextStyle(
+                          color: colorScheme.onSurface.withValues(alpha: 0.7 * 255),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Toggle CPF/Email
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: theme.dividerColor,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildToggleButton(
+                                'CPF',
+                                _loginPorCpf,
+                                () => setState(() {
+                                  _loginPorCpf = true;
+                                  _identificadorController.clear();
+                                }),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildToggleButton(
+                                'E-mail',
+                                !_loginPorCpf,
+                                () => setState(() {
+                                  _loginPorCpf = false;
+                                  _identificadorController.clear();
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Campo de CPF/E-mail
+                      TextFormField(
+                        controller: _identificadorController,
+                        keyboardType: _loginPorCpf ? TextInputType.number : TextInputType.emailAddress,
+                        inputFormatters: _loginPorCpf ? [maskCpf] : null,
+                        decoration: InputDecoration(
+                          labelText: _loginPorCpf ? 'CPF' : 'E-mail',
+                          prefixIcon: Icon(
+                            _loginPorCpf ? Icons.badge : Icons.email,
+                            color: colorScheme.primary,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary.withValues(alpha: 0.5 * 255),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Campo de senha
+                      TextFormField(
+                        controller: _senhaController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: 'Senha',
+                          prefixIcon: Icon(
+                            Icons.lock,
+                            color: colorScheme.primary,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                              color: colorScheme.primary,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary.withValues(alpha: 0.5 * 255),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Botão de login
+                      SizedBox(
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Entrar',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Link para cadastro
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            SlideRightRoute(
+                              page: const RegisterScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Ainda não tem conta? Cadastre-se',
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                obscureText: true,
               ),
-              const SizedBox(height: 20),
-              if (_errorMessage != null) ...[
-                Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 10),
+              
+              // Biometria com animação
+              if (_biometriaDisponivel) ...[
+                const SizedBox(height: 32),
+                TweenAnimationBuilder(
+                  tween: Tween<double>(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 800),
+                  builder: (context, double value, child) {
+                    return Opacity(
+                      opacity: value,
+                      child: Transform.translate(
+                        offset: Offset(0, 20 * (1 - value)),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colorScheme.primary.withValues(alpha: 0.1 * 255),
+                        ),
+                        padding: const EdgeInsets.all(16),
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.fingerprint,
+                            size: 50,
+                            color: colorScheme.primary,
+                          ),
+                          onPressed: _autenticarComBiometria,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Entrar com biometria',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
-              Builder(
-                builder: (context) {
-                  final id = _identificadorController.text.trim();
-                  final senha = _senhaController.text.trim();
-                  final enableLogin = !_isLoading &&
-                      ((_loginPorCpf &&
-                              id.replaceAll(RegExp(r'[^0-9]'), '').length ==
-                                  11) ||
-                          (!_loginPorCpf && _isValidEmail(id))) &&
-                      senha.length >= 4;
-                  return ElevatedButton(
-                    onPressed: enableLogin ? () => _login(context) : null,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Text('Entrar'),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  if (!context.mounted) return;
-                  final navigator = Navigator.of(context);
-                  if (!context.mounted) return;
-                  navigator.push(
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          const RegisterScreen(),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                        const begin = Offset(1.0, 0.0);
-                        const end = Offset.zero;
-                        const curve = Curves.ease;
-                        var tween = Tween(begin: begin, end: end)
-                            .chain(CurveTween(curve: curve));
-                        return SlideTransition(
-                          position: animation.drive(tween),
-                          child: child,
-                        );
-                      },
-                    ),
-                  );
-                },
-                child: const Text('Não tem conta? Cadastre-se'),
-              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton(String text, bool isSelected, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : theme.dividerColor,
+            width: 1.5,
+          ),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 15,
           ),
         ),
       ),

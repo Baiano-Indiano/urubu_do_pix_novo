@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../services/app_state_manager.dart';
 import '../widgets/saldo_card.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
@@ -34,11 +35,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Carrega o perfil do usuário
   Future<void> _loadUserProfile() async {
-    // Aqui você pode buscar o nome e avatar do usuário do perfil/SharedPreferences/API
-    setState(() {
-      _nomeUsuario = 'Usuário Exemplo';
-      _avatarUrl = null; // ou URL da foto
-    });
+    try {
+      final userId = ApiService().usuarioAtual;
+      if (userId != null) {
+        final userData = await ApiService().getUserProfile(userId);
+        if (userData != null && userData['nome'] != null) {
+          final nomeCompleto = userData['nome'] as String;
+          final partesNome = nomeCompleto.split(' ');
+          String nomeFormatado = nomeCompleto;
+          
+          // Pega primeiro e último nome se houver mais de um nome
+          if (partesNome.length > 1) {
+            nomeFormatado = '${partesNome.first} ${partesNome.last}';
+          }
+          
+          if (mounted) {
+            setState(() {
+              _nomeUsuario = nomeFormatado;
+              _avatarUrl = userData['foto'] as String?;
+            });
+          }
+          return;
+        }
+      }
+      
+      // Se não encontrar o nome, usa um valor padrão
+      if (mounted) {
+        setState(() {
+          _nomeUsuario = 'Usuário';
+          _avatarUrl = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar perfil: $e');
+      if (mounted) {
+        setState(() {
+          _nomeUsuario = 'Usuário';
+        });
+      }
+    }
   }
 
   /// Exibe uma mensagem de sucesso
@@ -163,30 +198,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildThemeToggleItem() {
-    return ListTile(
-      leading: const Icon(Icons.brightness_6),
-      title: const Text('Tema'),
-      onTap: () {
-        final theme = Theme.of(context).brightness;
-        final appState = MyAppState.of(context);
-        if (appState != null) {
-          appState.setThemeMode(
-            theme == Brightness.dark ? ThemeMode.light : ThemeMode.dark,
-          );
-        }
+    return Consumer<AppStateManager>(
+      builder: (context, appState, _) {
+        return ListTile(
+          leading: const Icon(Icons.brightness_6),
+          title: const Text('Tema'),
+          onTap: appState.toggleTheme,
+        );
       },
     );
   }
 
   Widget _buildLanguageItem() {
-    return ListTile(
-      leading: const Icon(Icons.language),
-      title: const Text('Idioma: Português/Inglês'),
-      onTap: () {
-        final locale = Localizations.localeOf(context).languageCode == 'pt'
-            ? const Locale('en')
-            : const Locale('pt');
-        MyApp.setLocale(context, locale);
+    return Consumer<AppStateManager>(
+      builder: (context, appState, _) {
+        return ListTile(
+          leading: const Icon(Icons.language),
+          title: Text(
+            'Idioma: ${Localizations.localeOf(context).languageCode == 'en' ? 'Português' : 'English'}'
+          ),
+          onTap: () {
+            final locale = Localizations.localeOf(context).languageCode == 'pt'
+                ? const Locale('en')
+                : const Locale('pt');
+            MyApp.setLocale(context, locale);
+          },
+        );
       },
     );
   }

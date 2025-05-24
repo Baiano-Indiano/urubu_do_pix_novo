@@ -1,54 +1,114 @@
-# Guia do Desenvolvedor - Urubu PIX
+# 🛠️ Guia do Desenvolvedor - Urubu PIX
 
 Este documento fornece informações técnicas detalhadas para desenvolvedores que desejam contribuir com o projeto Urubu PIX.
+
+## 📱 Visão Geral Técnica
+
+O Urubu PIX é um aplicativo de banco digital desenvolvido em Flutter com backend em Supabase. Ele permite transferências PIX, gerenciamento de contas e visualização de extratos.
+
+### 🔧 Tecnologias Principais
+
+- **Frontend**: Flutter 3.16.0+
+- **Backend**: Supabase (PostgreSQL, Auth, Storage, Realtime)
+- **Autenticação**: OAuth2, JWT, Biometria
+- **Banco de Dados**: PostgreSQL 14+
+- **CI/CD**: GitHub Actions
+- **Testes**: Unitários, Widget, Integração
 
 ## 🏗️ Arquitetura
 
 O Urubu PIX segue uma arquitetura em camadas com separação clara de responsabilidades:
 
-1. **Camada de Apresentação (UI)**
-   - Widgets e controladores de interface
-   - Componentes reutilizáveis
-   - Gerenciamento de estado com Provider
+### 1. Camada de Apresentação (UI)
+- **Componentes**: Widgets reutilizáveis e telas
+- **Controladores**: Gerenciamento de estado com Provider
+- **Navegação**: Go Router para roteamento
+- **Temas**: Suporte a temas claro/escuro
 
-2. **Camada de Domínio**
-   - Regras de negócio
-   - Casos de uso
-   - Modelos de domínio
+### 2. Camada de Domínio
+- **Casos de Uso**: Lógica de negócios
+- **Modelos**: Entidades do domínio
+- **Validadores**: Regras de validação
+- **Serviços**: Lógica de negócios reutilizável
 
-3. **Camada de Dados**
-   - Repositórios
-   - Fontes de dados (API local/remota)
-   - Mapeamento de dados
+### 3. Camada de Dados
+- **Repositórios**: Abstração do acesso a dados
+- **Modelos**: DTOs e entidades
+- **Mapeadores**: Conversão entre modelos
+- **Fontes**: Local (Hive) e Remota (Supabase)
 
-4. **Camada de Infraestrutura**
-   - Serviços de rede (API)
-   - Armazenamento local
-   - Autenticação
+### 4. Camada de Infraestrutura
+- **API Client**: Dio para requisições HTTP
+- **Autenticação**: Supabase Auth
+- **Armazenamento**: Hive (local) e Supabase Storage
+- **Monitoramento**: Sentry para erros
 
 ## 🔄 Padrões de Projeto
 
-- **Repository Pattern**: Para abstração do acesso a dados
-- **Provider Pattern**: Para gerenciamento de estado
-- **Service Locator**: Para injeção de dependências
-- **Factory Pattern**: Para criação de objetos complexos
+| Padrão | Uso |
+|--------|-----|
+| **Repository** | Abstração do acesso a dados |
+| **Provider** | Gerenciamento de estado |
+| **Service Locator** | Injeção de dependências |
+| **Factory** | Criação de objetos complexos |
+| **Builder** | Construção de widgets complexos |
+| **Singleton** | Serviços globais |
+| **Observer** | Monitoramento de estado |
 
 ## 🧩 Estrutura de Pastas
 
 ```
 lib/
-├── main.dart               # Ponto de entrada
-├── l10n/                    # Internacionalização
-├── screens/                 # Telas do aplicativo
-│   ├── auth/               # Autenticação
-│   │   ├── login_screen.dart
-│   │   └── register_screen.dart
-│   ├── dashboard/          # Dashboard financeiro
-│   │   └── dashboard_screen.dart
-│   ├── transfers/          # Transferências
-│   │   ├── transfer_screen.dart
-│   │   └── transfer_detail_screen.dart
-│   ├── history/            # Histórico
+├── main.dart                     # Ponto de entrada
+├── app/                          # Configuração do app
+│   ├── app.dart                 # Configuração principal
+│   ├── router.dart              # Configuração de rotas
+│   └── theme.dart               # Temas e estilos
+│
+├── core/                       # Código central
+│   ├── constants/               # Constantes globais
+│   ├── errors/                  # Tratamento de erros
+│   ├── network/                 # Configuração de rede
+│   └── utils/                   # Utilitários gerais
+│
+├── data/                       # Camada de dados
+│   ├── datasources/             # Fontes de dados
+│   ├── models/                  # Modelos de dados
+│   └── repositories/            # Implementações de repositórios
+│
+├── domain/                     # Lógica de negócios
+│   ├── entities/                # Entidades de domínio
+│   ├── repositories/            # Interfaces de repositórios
+│   └── usecases/                # Casos de uso
+│
+├── presentation/               # Interface do usuário
+│   ├── screens/                 # Telas do app
+│   │   ├── auth/                # Autenticação
+│   │   │   ├── login_screen.dart
+│   │   │   └── register_screen.dart
+│   │   │
+│   │   ├── dashboard/         # Dashboard
+│   │   │   └── dashboard_screen.dart
+│   │   │
+│   │   ├── transfers/         # Transferências
+│   │   │   ├── transfer_screen.dart
+│   │   │   └── transfer_detail_screen.dart
+│   │   │
+│   │   └── settings/          # Configurações
+│   │       └── settings_screen.dart
+│   │
+│   ├── widgets/               # Componentes reutilizáveis
+│   │   ├── common/             # Componentes comuns
+│   │   └── shared/             # Componentes compartilhados
+│   │
+│   └── providers/             # Gerenciamento de estado
+│       ├── auth_provider.dart
+│       └── theme_provider.dart
+│
+└── l10n/                       # Internacionalização
+    ├── intl_en.arb
+    └── intl_pt.arb
+```
 │   │   └── history_screen.dart
 │   └── profile/            # Perfil
 │       └── profile_screen.dart
@@ -166,11 +226,124 @@ genhtml coverage/lcov.info -o coverage/html
 - Use expressões regulares para validação de formatos
 - Implemente sanitização de dados para prevenir injeção
 
-### Comunicação
-- Utilize HTTPS para todas as requisições de rede
-- Implemente SSL Pinning
-- Valide certificados SSL
-- Use tokens de acesso com tempo de vida limitado
+## 🔒 Segurança
+
+### Autenticação e Autorização
+- Tokens JWT com expiração curta (15min)
+- Refresh tokens com rotação
+- Validação de sessão em todas as requisições
+- Proteção contra ataques CSRF
+
+### Dados Sensíveis
+- Criptografia em repouso (AES-256)
+- Dados sensíveis nunca são armazenados em log
+- Máscara de dados sensíveis na UI
+- Validação de entrada em todas as camadas
+
+### Comunicação Segura
+- HTTPS obrigatório para todas as requisições
+- SSL Pinning implementado
+- Validação estrita de certificados
+- Headers de segurança HTTP
+- CORS configurado de forma restritiva
+
+## 🚀 Performance
+
+### Otimizações
+- Cache inteligente de dados
+- Paginação de listas longas
+- Compressão de imagens
+- Carregamento preguiçoso de recursos
+
+### Monitoramento
+- Logs de desempenho
+- Rastreamento de erros com Sentry
+- Métricas de uso de memória
+- Tempo de carregamento das telas
+
+## 📦 Dependências Principais
+
+### Frontend
+- `provider`: Gerenciamento de estado
+- `dio`: Cliente HTTP
+- `hive`: Armazenamento local
+- `intl`: Internacionalização
+- `flutter_local_notifications`: Notificações
+- `qr_code_scanner`: Leitor de QR Code
+- `flutter_svg`: Renderização de SVGs
+- `cached_network_image`: Cache de imagens
+
+### Backend (Supabase)
+- PostgreSQL 14+
+- Row Level Security (RLS)
+- Funções Edge
+- Armazenamento de arquivos
+- Autenticação e Autorização
+
+## 🔄 Fluxo de Desenvolvimento
+
+1. **Configuração Inicial**
+   ```bash
+   # Instale as dependências
+   flutter pub get
+   
+   # Execute os testes
+   flutter test
+   
+   # Inicie o app em modo desenvolvimento
+   flutter run -t lib/main_development.dart
+   ```
+
+2. **Variáveis de Ambiente**
+   Crie um arquivo `.env` baseado no `.env.example`:
+   ```env
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_ANON_KEY=your_anon_key
+   SENTRY_DSN=your_sentry_dsn
+   ```
+
+3. **Supabase Local**
+   ```bash
+   # Instale o CLI do Supabase
+   npm install -g supabase
+   
+   # Inicie o ambiente local
+   supabase start
+   ```
+
+## 🧪 Testes
+
+### Tipos de Testes
+- **Unitários**: Testes de unidade isolados
+- **Widget**: Testes de componentes UI
+- **Integração**: Testes de fluxo completo
+- **Golden**: Testes de snapshot
+
+### Executando Testes
+```bash
+# Todos os testes
+flutter test
+
+# Testes específicos
+flutter test test/unit/auth_test.dart
+
+# Testes com cobertura
+flutter test --coverage
+```
+
+## 📚 Documentação Adicional
+
+- [Guia de Estilo](STYLE_GUIDE.md)
+- [Documentação da API](API_DOCS.md)
+- [Guia de Contribuição](CONTRIBUTING.md)
+- [Código de Conduta](CODE_OF_CONDUCT.md)
+
+## 🤝 Suporte
+
+Encontrou um problema ou tem dúvidas?
+- Abra uma [issue](https://github.com/seu-usuario/urubu_pix/issues)
+- Consulte as [FAQs](docs/FAQs.md)
+- Entre no nosso [Discord](https://discord.gg/urubupix)
 
 ### Autenticação
 - Implemente autenticação de dois fatores

@@ -274,50 +274,43 @@ class ApiService {
     bool isPessoaFisica = true,
   }) async {
     try {
-      String email;
-      if (identificador.contains('@')) {
-        email = identificador;
-      } else {
-        email =
-            '${identificador.replaceAll(RegExp(r'[^0-9]'), '')}@urubupix.com';
+      // Remove formatação do CPF
+      final cleanCpf = cpf.replaceAll(RegExp(r'[^0-9]'), '');
+      
+      // Formata o email
+      final email = identificador.contains('@')
+          ? identificador
+          : '$cleanCpf@urubupix.com';
+
+      // Verifica se o CPF já está cadastrado
+      final cpfExists = await checkIfDocumentExists(cleanCpf);
+      if (cpfExists) {
+        throw AuthException('CPF já cadastrado');
       }
 
-      final response = await _supabase.auth.signUp(
+      // Cria o usuário no Auth com os metadados
+      final authResponse = await _supabase.auth.signUp(
         email: email,
         password: senha,
         data: {
           'nome': nome,
-          'cpf': cpf,
+          'cpf': cleanCpf,
           'telefone': telefone,
           'tipo_pessoa': isPessoaFisica ? 'fisica' : 'juridica',
         },
       );
-
-      if (response.user != null) {
-        // Cria conta com saldo inicial
+      
+      // Cria uma nova conta para o usuário com saldo inicial zero
+      if (authResponse.user != null) {
         await _supabase.from('accounts').insert({
-          'user_id': response.user!.id,
-          'balance': 30000.0,
+          'user_id': authResponse.user!.id,
+          'balance': 0.0,
         });
-
-        // Cria perfil do usuário
-        await _supabase.from('users').insert({
-          'user_id': response.user!.id,
-          'email': email,
-          'nome': nome,
-          'cpf': cpf,
-          'telefone': telefone,
-          'tipo_pessoa': isPessoaFisica ? 'fisica' : 'juridica',
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-
-        return true;
-      } else {
-        throw Exception('Não foi possível concluir o cadastro.');
       }
+
+      return authResponse.user != null;
     } on AuthException catch (e) {
-      logDebug('Erro ao registrar: ${e.message}');
+      logDebug('Erro de autenticação ao registrar: ${e.message}');
       rethrow;
     } catch (e) {
       logDebug('Erro ao registrar usuário: $e');

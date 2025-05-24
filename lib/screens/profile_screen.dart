@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:urubu_do_pix_novo/main.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../services/app_state_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -449,31 +450,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 Icon(Icons.color_lens, size: 20),
                                 SizedBox(width: 8),
-                                Text('Tema do app:'),
+                                Text('Tema Escuro'),
                               ],
                             ),
-                            DropdownButton<ThemeMode>(
-                              value: _getCurrentThemeMode(context),
-                              underline: const SizedBox(),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: ThemeMode.system,
-                                  child: Text('Sistema'),
-                                ),
-                                DropdownMenuItem(
-                                  value: ThemeMode.light,
-                                  child: Text('Claro'),
-                                ),
-                                DropdownMenuItem(
-                                  value: ThemeMode.dark,
-                                  child: Text('Escuro'),
-                                ),
-                              ],
-                              onChanged: (mode) {
-                                if (mode != null) {
-                                  final state = _getAppState(context);
-                                  state?.setThemeMode(mode);
-                                }
+                            Consumer<AppStateManager>(
+                              builder: (context, appState, child) {
+                                return Switch(
+                                  value: appState.themeMode == ThemeMode.dark,
+                                  onChanged: (bool value) {
+                                    appState.setThemeMode(
+                                      value ? ThemeMode.dark : ThemeMode.light,
+                                    );
+                                  },
+                                );
                               },
                             ),
                           ],
@@ -535,12 +524,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// Helpers para pegar e definir o tema dinâmico
-MyAppState? _getAppState(BuildContext context) {
-  return context.findAncestorStateOfType<MyAppState>();
-}
-
-ThemeMode _getCurrentThemeMode(BuildContext context) {
-  final state = _getAppState(context);
-  return state?.themeMode ?? ThemeMode.system;
-}

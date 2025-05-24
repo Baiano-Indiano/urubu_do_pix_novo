@@ -1,38 +1,140 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:postgrest/postgrest.dart';
 import 'package:urubu_do_pix_novo/models/paginated_response.dart';
 import 'package:urubu_do_pix_novo/services/cache_service.dart';
 import 'package:urubu_do_pix_novo/services/api_service.dart';
 
 class AccountService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  
+  // Getter público para o cliente Supabase
+  SupabaseClient get supabase => _supabase;
+
+  // Verifica e cria uma conta se não existir
+  Future<void> ensureAccountExists(String userId) async {
+    try {
+      debugPrint('Verificando se a conta existe para o usuário: $userId');
+      
+      // Primeiro, tenta buscar a conta
+      try {
+        final account = await _supabase
+            .from('accounts')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+            
+        if (account != null) {
+          debugPrint('✅ Conta encontrada para o usuário $userId');
+          return;
+        }
+      } catch (e) {
+        // Se der erro 406 (Not Found), a conta não existe
+        if (e is PostgrestException && e.code != 'PGRST116') {
+          rethrow;
+        }
+      }
+      
+      // Se chegou aqui, a conta não existe ou não pôde ser acessada
+      debugPrint('Conta não encontrada para o usuário $userId. Criando nova conta...');
+      
+      try {
+        await _supabase.from('accounts').insert({
+          'user_id': userId,
+          'balance': 0.0,
+        });
+        debugPrint('✅ Nova conta criada para o usuário $userId');
+      } on PostgrestException catch (e) {
+        // Se der erro de chave duplicada, ignora (a conta já existe)
+        if (e.code != '23505') {
+          rethrow;
+        }
+        debugPrint('✅ Conta já existe (erro de chave duplicada)');
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao verificar/criar conta: $e');
+      // Não relançamos o erro para não interromper o fluxo principal
+    }
+  }
 
   // Busca os dados de uma conta pelo ID do usuário
   Future<Map<String, dynamic>?> getAccountByUserId(String userId) async {
     try {
-      // Primeiro busca os dados da conta
-      final accountResponse = await _supabase
-          .from('accounts')
+      debugPrint('\n=== INÍCIO DA BUSCA DE CONTA ===');
+      debugPrint('Buscando conta para o usuário: $userId');
+      
+      // Primeiro busca os dados do usuário
+      debugPrint('Buscando dados do usuário...');
+      final userResponse = await _supabase
+          .from('users')
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
 
-      if (accountResponse != null) {
-        // Depois busca os dados do usuário
-        final userResponse = await _supabase
+      if (userResponse == null) {
+        debugPrint('❌ Usuário não encontrado na tabela users: $userId');
+        
+        // Verifica se há algum usuário na tabela
+        final allUsers = await _supabase
             .from('users')
-            .select('nome, cpf, email, telefone')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        if (userResponse != null) {
-          return {
-            ...accountResponse,
-            'user_data': userResponse,
-          };
+            .select('user_id, email')
+            .limit(5);
+            
+        debugPrint('\n=== AMOSTRA DE USUÁRIOS NA TABELA ===');
+        if (allUsers.isEmpty) {
+          debugPrint('Nenhum usuário encontrado na tabela users');
+        } else {
+          debugPrint('Total de usuários: ${allUsers.length}');
+          for (var user in allUsers) {
+            debugPrint('- ID: ${user['user_id']}');
+            debugPrint('  Email: ${user['email']}');
+          }
         }
+        
+        return null;
       }
-      return null;
+      
+      debugPrint('✅ Dados do usuário encontrados:');
+      debugPrint('- Nome: ${userResponse['nome']}');
+      debugPrint('- Email: ${userResponse['email']}');
+
+      // Usa a função RPC para buscar a conta (que já sabemos que funciona)
+      debugPrint('Buscando dados da conta via RPC...');
+      final directCheck = await _supabase
+          .rpc('get_account_balance', params: {'p_user_id': userId});
+      
+      debugPrint('Resultado da consulta RPC: $directCheck');
+      
+      if (directCheck == null || directCheck['exists'] != true) {
+        debugPrint('❌ Conta não encontrada via RPC para o usuário: $userId');
+        return null;
+      }
+      
+      final accountData = directCheck['account'] as Map<String, dynamic>?;
+      
+      if (accountData == null) {
+        debugPrint('❌ Dados da conta inválidos na resposta RPC');
+        return null;
+      }
+      
+      debugPrint('✅ Dados da conta encontrados via RPC:');
+      debugPrint('- Saldo: ${accountData['balance']}');
+      debugPrint('- User ID: ${accountData['user_id']}');
+
+      // Combina os dados do usuário e da conta
+      final result = {
+        'user_id': userId,
+        'balance': accountData['balance']?.toDouble() ?? 0.0,
+        'nome': userResponse['nome'],
+        'cpf': userResponse['cpf'],
+        'email': userResponse['email'],
+        'telefone': userResponse['telefone'],
+      };
+      
+      debugPrint('✅ Dados combinados da conta:');
+      result.forEach((key, value) => debugPrint('- $key: $value'));
+      
+      return result;
     } catch (e) {
       debugPrint('Erro ao buscar conta: $e');
       return null;
@@ -42,40 +144,76 @@ class AccountService {
   // Busca uma conta por CPF, e-mail ou telefone
   Future<Map<String, dynamic>?> searchAccount(String searchTerm) async {
     try {
-      // Remove caracteres não numéricos para busca por CPF/telefone
-      final cleanSearch = searchTerm.replaceAll(RegExp(r'[^0-9a-zA-Z@.]'), '');
-
+      debugPrint('\n=== INÍCIO DA BUSCA DE CONTA ===');
+      debugPrint('Termo de busca original: "$searchTerm"');
+      
+      final searchEmail = searchTerm.trim().toLowerCase();
+      debugPrint('Buscando por e-mail: "$searchEmail"');
+      
       // Primeiro, busca o usuário
+      debugPrint('Buscando usuário...');
       final userResponse = await _supabase
           .from('users')
-          .select('''
-            user_id, 
-            nome, 
-            cpf, 
-            email, 
-            telefone
-          ''')
-          .or('cpf.eq.$cleanSearch,email.eq.$searchTerm,telefone.eq.$cleanSearch')
+          .select('*')
+          .eq('email', searchEmail)
           .maybeSingle();
-
-      if (userResponse != null) {
-        // Depois, busca o saldo da conta
-        final accountResponse = await _supabase
-            .from('accounts')
-            .select('balance')
-            .eq('user_id', userResponse['user_id'])
-            .maybeSingle();
-
-        return {
-          'user_id': userResponse['user_id'],
-          'nome': userResponse['nome'],
-          'cpf': userResponse['cpf'],
-          'email': userResponse['email'],
-          'telefone': userResponse['telefone'],
-          'balance': (accountResponse?['balance'] ?? 0.0).toDouble(),
-        };
+          
+      debugPrint('Resposta do usuário:');
+      debugPrint(userResponse?.toString() ?? 'Usuário não encontrado');
+      
+      if (userResponse == null) {
+        debugPrint('❌ Nenhum usuário encontrado com o e-mail: $searchEmail');
+        
+        // Busca todos os e-mails para depuração
+        debugPrint('\n=== LISTA DE TODOS OS USUÁRIOS CADASTRADOS ===');
+        final allUsers = await _supabase
+            .from('users')
+            .select('user_id, email')
+            .order('email');
+            
+        if (allUsers.isEmpty) {
+          debugPrint('Nenhum usuário encontrado no banco de dados');
+        } else {
+          debugPrint('Total de usuários: ${allUsers.length}');
+          for (var user in allUsers) {
+            final email = user['email']?.toString() ?? 'null';
+            debugPrint('- ID: ${user['user_id']}');
+            debugPrint('  E-mail: "$email"');
+          }
+        }
+        
+        return null;
       }
-      return null;
+      
+      final userId = userResponse['user_id'];
+      debugPrint('✅ Dados do usuário encontrados:');
+      debugPrint('- ID: $userId');
+      debugPrint('- Nome: ${userResponse['nome']}');
+      debugPrint('- E-mail: ${userResponse['email']}');
+      debugPrint('- CPF: ${userResponse['cpf']}');
+      
+      // Busca o saldo da conta separadamente
+      debugPrint('Buscando saldo da conta...');
+      final accountResponse = await _supabase
+          .from('accounts')
+          .select('balance')
+          .eq('user_id', userId)
+          .maybeSingle();
+          
+      final balance = accountResponse != null 
+          ? (accountResponse['balance'] ?? 0.0).toDouble()
+          : 0.0;
+          
+      debugPrint('Saldo da conta: $balance');
+      
+      return {
+        'user_id': userId,
+        'nome': userResponse['nome'],
+        'cpf': userResponse['cpf'],
+        'email': userResponse['email'],
+        'telefone': userResponse['telefone'],
+        'balance': balance,
+      };
     } catch (e) {
       debugPrint('Erro ao buscar conta: $e');
       return null;
@@ -89,42 +227,94 @@ class AccountService {
     required double amount,
     String? description,
   }) async {
+    // Garante que ambas as contas existam
+    await ensureAccountExists(fromUserId);
+    await ensureAccountExists(toUserId);
     try {
-      debugPrint(
-          'Iniciando transferência de $fromUserId para $toUserId no valor de $amount');
+      debugPrint('\n=== INÍCIO DA TRANSFERÊNCIA ===');
+      debugPrint('De: $fromUserId');
+      debugPrint('Para: $toUserId');
+      debugPrint('Valor: $amount');
+
+      // Verifica se o valor é válido
+      if (amount <= 0) {
+        debugPrint('Valor inválido: $amount');
+        return {'success': false, 'error': 'O valor da transferência deve ser maior que zero'};
+      }
 
       // Verifica se as contas existem
+      debugPrint('Verificando conta de origem...');
       final fromAccount = await getAccountByUserId(fromUserId);
       if (fromAccount == null) {
-        debugPrint('Conta de origem não encontrada: $fromUserId');
+        debugPrint('❌ Conta de origem não encontrada: $fromUserId');
         return {'success': false, 'error': 'Conta de origem não encontrada'};
       }
+      debugPrint('✅ Conta de origem encontrada: ${fromAccount['email']}');
 
+      debugPrint('Verificando conta de destino...');
       final toAccount = await getAccountByUserId(toUserId);
       if (toAccount == null) {
-        debugPrint('Conta de destino não encontrada: $toUserId');
+        debugPrint('❌ Conta de destino não encontrada: $toUserId');
         return {'success': false, 'error': 'Conta de destino não encontrada'};
       }
+      debugPrint('✅ Conta de destino encontrada: ${toAccount['email']}');
 
       // Verifica se há saldo suficiente
-      final fromBalance = (fromAccount['balance'] ?? 0.0).toDouble();
-      if (fromBalance < amount) {
-        debugPrint('Saldo insuficiente: $fromBalance < $amount');
-        return {'success': false, 'error': 'Saldo insuficiente'};
+      final saldoAtual = (fromAccount['balance'] ?? 0.0).toDouble();
+      debugPrint('Saldo atual: R\$ $saldoAtual');
+      
+      if (saldoAtual < amount) {
+        final mensagemErro = 'Saldo insuficiente. Saldo disponível: R\$ $saldoAtual';
+        debugPrint('❌ $mensagemErro');
+        return {'success': false, 'error': mensagemErro};
       }
 
       // Inicia uma transação
-      debugPrint('Chamando função transfer_between_accounts no banco de dados');
-      final response =
-          await _supabase.rpc('transfer_between_accounts', params: {
-        'from_user_id': fromUserId,
-        'to_user_id': toUserId,
-        'amount': amount,
-        'description': description ?? 'Transferência entre contas',
-      }).timeout(const Duration(seconds: 10));
+      try {
+        debugPrint('Iniciando transferência no banco de dados...');
+        final response = await _supabase.rpc('transfer_money', params: {
+          'p_from_user_id': fromUserId,
+          'p_to_user_id': toUserId,
+          'p_amount': amount.toString(),
+          'p_description': description ?? 'Transferência entre contas',
+        }).timeout(const Duration(seconds: 10));
 
-      debugPrint('Transferência realizada com sucesso: $response');
-      return {'success': true, 'data': response};
+        debugPrint('✅ Resposta da transferência: $response');
+        
+        // Converte a resposta para um Map
+        final responseData = response as Map<String, dynamic>;
+        
+        if (responseData['success'] != true) {
+          final error = responseData['error']?.toString() ?? 'Erro desconhecido';
+          debugPrint('❌ Erro na transferência: $error');
+          return {'success': false, 'error': error};
+        }
+        
+        debugPrint('✅ Transferência realizada com sucesso!');
+        debugPrint('ID da transação: ${responseData['transaction_id']}');
+        debugPrint('Novo saldo: R\$${responseData['new_balance']}');
+        
+        // Atualiza o cache local com o novo saldo retornado
+        final novoSaldo = (responseData['new_balance'] ?? 0.0).toDouble();
+        await updateCachedBalance(fromUserId, novoSaldo);
+        
+        return {
+          'success': true, 
+          'data': {
+            'from_user_id': fromUserId,
+            'to_user_id': toUserId,
+            'amount': amount,
+            'new_balance': novoSaldo,
+            'timestamp': DateTime.now().toIso8601String(),
+          }
+        };
+      } catch (e) {
+        debugPrint('❌ Erro ao realizar transferência: $e');
+        return {
+          'success': false, 
+          'error': 'Erro ao processar a transferência. Tente novamente mais tarde.'
+        };
+      }
     } catch (e) {
       debugPrint('Erro na transferência: $e');
       return {'success': false, 'error': e.toString()};
@@ -273,6 +463,33 @@ class AccountService {
       );
     } catch (e) {
       debugPrint('Erro ao atualizar cache do saldo: $e');
+    }
+  }
+
+  
+  // Função temporária para depuração - listar todos os usuários
+  Future<void> debugListAllUsers() async {
+    try {
+      print('=== LISTANDO TODOS OS USUÁRIOS ===');
+      final response = await _supabase
+          .from('users')
+          .select('id, email, nome, cpf')
+          .order('email');
+          
+      if (response.isEmpty) {
+        print('Nenhum usuário encontrado no banco de dados');
+      } else {
+        print('Total de usuários: ${response.length}');
+        for (var user in response) {
+          print('--------------------------------');
+          print('ID: ${user['id']}');
+          print('Nome: ${user['nome']}');
+          print('E-mail: ${user['email']}');
+          print('CPF: ${user['cpf']}');
+        }
+      }
+    } catch (e) {
+      print('Erro ao listar usuários: $e');
     }
   }
 }

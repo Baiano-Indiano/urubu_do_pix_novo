@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart' show MaskTextInputFormatter, MaskAutoCompletionType;
 import '../services/api_service.dart';
 import '../utils/validators.dart';
 import 'home_screen.dart';
@@ -27,7 +27,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final maskCnpj = MaskTextInputFormatter(
       mask: '##.###.###/####-##', filter: {"#": RegExp(r'[0-9]')});
   final maskPhone = MaskTextInputFormatter(
-      mask: '(##) #####-####', filter: {"#": RegExp(r'[0-9]')});
+      mask: '(##) #####-####',
+      filter: {"#": RegExp(r'[0-9]')},
+      type: MaskAutoCompletionType.lazy);
 
   // Variáveis de estado
   String? _errorMessage;
@@ -177,8 +179,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      if (!isValidPhoneBR(_telefoneController.text)) {
-        _telefoneError = 'Telefone inválido';
+      final phone = _telefoneController.text;
+      if (phone.isEmpty) {
+        _telefoneError = null;
+        return;
+      }
+      
+      final cleaned = phone.replaceAll(RegExp(r'[^0-9]'), '');
+      
+      if (cleaned.length != 11) {
+        _telefoneError = 'O número deve ter 11 dígitos (DDD + 9 + número)';
+      } else if (cleaned[2] != '9') {
+        _telefoneError = 'Número de celular deve começar com 9 após o DDD';
+      } else if (RegExp(r'^(\d)\1+$').hasMatch(cleaned.substring(2))) {
+        _telefoneError = 'Número de telefone inválido';
       } else {
         _telefoneError = null;
       }
