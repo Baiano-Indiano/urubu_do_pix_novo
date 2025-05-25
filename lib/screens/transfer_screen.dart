@@ -75,33 +75,33 @@ class _TransferScreenState extends State<TransferScreen> {
     _loadFavoritos();
     
     // Temporário: Listar todos os usuários para depuração
-    print('=== INICIANDO DEPURAÇÃO ===');
+    debugPrint('=== INICIANDO DEPURAÇÃO ===');
     _listAllUsers();
   }
   
   // Função auxiliar para listar usuários
   Future<void> _listAllUsers() async {
     try {
-      print('Buscando lista de usuários...');
+      debugPrint('Buscando lista de usuários...');
       final response = await _accountService.supabase
           .from('users')
           .select('user_id, email, nome')
           .order('email');
           
-      print('=== LISTA DE USUÁRIOS CADASTRADOS ===');
+      debugPrint('=== LISTA DE USUÁRIOS CADASTRADOS ===');
       if (response.isEmpty) {
-        print('Nenhum usuário encontrado no banco de dados');
+        debugPrint('Nenhum usuário encontrado no banco de dados');
       } else {
-        print('Total de usuários: ${response.length}');
+        debugPrint('Total de usuários: ${response.length}');
         for (var user in response) {
-          print('--------------------------------');
-          print('ID: ${user['id']}');
-          print('Nome: ${user['nome']}');
-          print('E-mail: ${user['email']}');
+          debugPrint('--------------------------------');
+          debugPrint('ID: ${user['id']}');
+          debugPrint('Nome: ${user['nome']}');
+          debugPrint('E-mail: ${user['email']}');
         }
       }
     } catch (e) {
-      print('Erro ao buscar usuários: $e');
+      debugPrint('Erro ao buscar usuários: $e');
     }
 
     // Adiciona listener para buscar conta quando o campo de destinatário perder o foco

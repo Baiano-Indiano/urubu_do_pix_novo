@@ -503,7 +503,7 @@ class _CotationScreenState extends State<CotationScreen> with SingleTickerProvid
             maxY: maxY,
             lineTouchData: LineTouchData(
               touchTooltipData: LineTouchTooltipData(
-                tooltipBgColor: Colors.black87,
+                getTooltipColor: (_) => Colors.black87,
                 getTooltipItems: (List<LineBarSpot> touchedSpots) {
                   return touchedSpots.map((spot) {
                     return LineTooltipItem(

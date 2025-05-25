@@ -33,11 +33,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Habilita logs detalhados
-  debugPrint = (String? message, {int? wrapWidth}) {
-    if (message != null) {
-      print(message);
-    }
-  };
+  // Configuração de debugPrint já está feita pelo Flutter
+  // Não é necessário sobrescrever
 
   // Inicializa serviços
   final connectivityService = ConnectivityService();

@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:platform_device_id/platform_device_id.dart';
 import 'package:urubu_do_pix_novo/services/encryption_service.dart';
 
 class SecurityService {
@@ -60,7 +59,15 @@ class SecurityService {
   // Gera um ID único baseado em características do dispositivo
   Future<String> _generateUniqueDeviceId() async {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final deviceId = await PlatformDeviceId.getDeviceId ?? '';
+    String deviceId = '';
+    
+    if (Platform.isAndroid) {
+      final androidInfo = await _deviceInfo.androidInfo;
+      deviceId = androidInfo.id;
+    } else if (Platform.isIOS) {
+      final iosInfo = await _deviceInfo.iosInfo;
+      deviceId = iosInfo.identifierForVendor ?? '';
+    }
 
     if (Platform.isAndroid) {
       final androidInfo = await _deviceInfo.androidInfo;

@@ -147,5 +147,15 @@
         "Xlint",
         "XVCJ"
     ],
-    "cmake.sourceDirectory": "C:/Users/Bernardo/Desktop/App de banco/urubu_do_pix_novo/linux"
+    "cmake.sourceDirectory": "C:/Users/Bernardo/Desktop/App de banco/urubu_do_pix_novo/linux",
+    "java.home": "C:\\\\Program Files\\\\Zulu\\\\zulu-17",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "C:\\\\Program Files\\\\Zulu\\\\zulu-17",
+            "default": true
+        }
+    ],
+    "java.jdt.ls.java.home": "C:\\\\Program Files\\\\Zulu\\\\zulu-17",
+    "oracle.java.jdt.ls.java.home": "C:\\\\Program Files\\\\Zulu\\\\zulu-17"
 }

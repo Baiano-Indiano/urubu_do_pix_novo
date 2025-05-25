@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:postgrest/postgrest.dart';
 import 'package:urubu_do_pix_novo/models/paginated_response.dart';
 import 'package:urubu_do_pix_novo/services/cache_service.dart';
 import 'package:urubu_do_pix_novo/services/api_service.dart';
@@ -470,26 +469,26 @@ class AccountService {
   // Função temporária para depuração - listar todos os usuários
   Future<void> debugListAllUsers() async {
     try {
-      print('=== LISTANDO TODOS OS USUÁRIOS ===');
+      debugPrint('=== LISTANDO TODOS OS USUÁRIOS ===');
       final response = await _supabase
           .from('users')
           .select('id, email, nome, cpf')
           .order('email');
           
       if (response.isEmpty) {
-        print('Nenhum usuário encontrado no banco de dados');
+        debugPrint('Nenhum usuário encontrado no banco de dados');
       } else {
-        print('Total de usuários: ${response.length}');
+        debugPrint('Total de usuários: ${response.length}');
         for (var user in response) {
-          print('--------------------------------');
-          print('ID: ${user['id']}');
-          print('Nome: ${user['nome']}');
-          print('E-mail: ${user['email']}');
-          print('CPF: ${user['cpf']}');
+          debugPrint('--------------------------------');
+          debugPrint('ID: ${user['id']}');
+          debugPrint('Nome: ${user['nome']}');
+          debugPrint('E-mail: ${user['email']}');
+          debugPrint('CPF: ${user['cpf']}');
         }
       }
     } catch (e) {
-      print('Erro ao listar usuários: $e');
+      debugPrint('Erro ao listar usuários: $e');
     }
   }
 }

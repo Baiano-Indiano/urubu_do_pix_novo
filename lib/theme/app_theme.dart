@@ -8,6 +8,7 @@ class AppTheme {
   
   // Cores de texto
   static const Color textPrimary = Color(0xFF2B2C34); // Azul escuro/grafite
+  static const Color textPrimary70 = Color(0xB32B2C34); // textPrimary com 70% de opacidade
   static const Color textSecondary = Color(0xFF5F5F6E); // Cinza azulado
   static const Color textLight = Color(0xFFFFFFFF); // Branco puro
   
@@ -64,7 +65,7 @@ class AppTheme {
         fontWeight: FontWeight.w600,
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 2,
       color: surfaceLight,
       shape: RoundedRectangleBorder(
@@ -144,7 +145,7 @@ class AppTheme {
     ),
     dividerColor: secondaryColor, // #D1D1E9
     cardColor: surfaceLight, // #FFFFFF
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: surfaceLight, // #FFFFFF
     )
   );
@@ -180,7 +181,7 @@ class AppTheme {
         fontWeight: FontWeight.w600,
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 2,
       color: const Color(0xFF242629), // Superfície de cartão
       shape: RoundedRectangleBorder(
@@ -203,7 +204,7 @@ class AppTheme {
       filled: true,
       fillColor: const Color(0xFF242629), // Cor de fundo do input
       hintStyle: const TextStyle(color: Color(0xFF94a1b2)), // Texto secundário
-      labelStyle: const TextStyle(color: Color(0xFF94a1b2)), // Texto secundário
+      labelStyle: const TextStyle(color: Color(0xB394A1B2)), // Texto secundário com 70% de opacidade
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -260,7 +261,7 @@ class AppTheme {
     ),
     dividerColor: const Color(0xFF2e2e32), // Divisórias escuras
     cardColor: const Color(0xFF242629), // Cor de fundo dos cards
-    dialogTheme: const DialogTheme(
+    dialogTheme: const DialogThemeData(
       backgroundColor: Color(0xFF242629), // Cor de fundo dos diálogos
     )
   );
@@ -318,14 +319,14 @@ class AppTheme {
   static TextStyle darkSubtitle1 = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.normal,
-    color: Colors.white.withOpacity(0.8),
+    color: const Color.fromRGBO(255, 255, 255, 0.8),
     height: 1.5,
   );
   
   // Sombras
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: const Color(0xFF2B2C34).withOpacity(0.05),
+      color: const Color.fromRGBO(43, 44, 52, 0.05),
       blurRadius: 10,
       spreadRadius: 0,
       offset: const Offset(0, 4),

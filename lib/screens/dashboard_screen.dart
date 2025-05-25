@@ -512,7 +512,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             barTouchData: BarTouchData(
               enabled: true,
               touchTooltipData: BarTouchTooltipData(
-                tooltipBgColor: Colors.white,
+                getTooltipColor: (_) => Colors.white,
                 getTooltipItem: (group, groupIndex, rod, rodIndex) {
                   return BarTooltipItem(
                     'R\$ ${rod.toY.toStringAsFixed(2)}',
@@ -602,7 +602,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             lineTouchData: LineTouchData(
               enabled: true,
               touchTooltipData: LineTouchTooltipData(
-                tooltipBgColor: Colors.white,
+                getTooltipColor: (_) => Colors.white,
                 getTooltipItems: (touchedSpots) {
                   return touchedSpots.map((spot) {
                     return LineTooltipItem(
