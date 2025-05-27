@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import '../services/biometric_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -10,9 +11,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _biometricService = BiometricService();
+  final _logger = Logger('SettingsScreen');
+  
   bool _biometriaDisponivel = false;
   bool _biometriaHabilitada = false;
   bool _carregando = true;
+  String _statusBiometria = 'Verificando...';
 
   @override
   void initState() {
@@ -21,60 +25,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _carregarConfiguracoes() async {
-    final disponivel = await _biometricService.isBiometricAvailable();
-    final habilitada = await _biometricService.isBiometricEnabled();
-
-    if (mounted) {
-      setState(() {
-        _biometriaDisponivel = disponivel;
-        _biometriaHabilitada = habilitada;
-        _carregando = false;
-      });
+    try {
+      setState(() => _statusBiometria = 'Verificando disponibilidade...');
+      
+      final disponivel = await _biometricService.isBiometricAvailable();
+      final habilitada = await _biometricService.isBiometricEnabled();
+      final temBiometriaCadastrada = await _biometricService.hasEnrolledBiometrics();
+      
+      if (mounted) {
+        setState(() {
+          _biometriaDisponivel = disponivel;
+          _biometriaHabilitada = habilitada;
+          _carregando = false;
+          _statusBiometria = disponivel 
+              ? (temBiometriaCadastrada 
+                  ? 'Disponível' 
+                  : 'Nenhuma biometria cadastrada')
+              : 'Não disponível';
+        });
+      }
+    } catch (e) {
+      _logger.severe('Erro ao carregar configurações de biometria', e);
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+          _statusBiometria = 'Erro ao verificar';
+        });
+      }
     }
   }
 
   Future<void> _toggleBiometria(bool value) async {
     try {
+      setState(() => _carregando = true);
+      
       if (value) {
         // Tenta autenticar antes de habilitar
-        final autenticado = await _biometricService.authenticate();
+        final autenticado = await _biometricService.authenticate(
+          localizedReason: 'Autentique-se para habilitar a biometria',
+        );
+        
         if (!autenticado) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Falha na autenticação biométrica'),
-              backgroundColor: Colors.red,
-            ),
+          _showSnackBar(
+            'Autenticação biométrica necessária para habilitar',
+            isError: true,
           );
+          setState(() => _carregando = false);
           return;
         }
       }
 
-      await _biometricService.setBiometricEnabled(value);
+      final sucesso = await _biometricService.setBiometricEnabled(value);
+      
       if (mounted) {
         setState(() {
-          _biometriaHabilitada = value;
+          _biometriaHabilitada = value && sucesso;
+          _carregando = false;
         });
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(value
-              ? 'Biometria habilitada com sucesso'
-              : 'Biometria desabilitada'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      
+      if (sucesso) {
+        _showSnackBar(
+          value 
+              ? 'Biometria habilitada com sucesso' 
+              : 'Biometria desabilitada',
+        );
+      } else {
+        _showSnackBar(
+          'Não foi possível ${value ? 'habilitar' : 'desabilitar'} a biometria',
+          isError: true,
+        );
+      }
+      
+      // Atualiza o status após a alteração
+      await _carregarConfiguracoes();
+      
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erro ao configurar biometria'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _logger.severe('Erro ao alternar biometria', e);
+      if (mounted) {
+        setState(() => _carregando = false);
+        _showSnackBar(
+          'Erro ao configurar biometria: ${e.toString()}',
+          isError: true,
+        );
+      }
     }
+  }
+  
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -97,22 +147,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ),
-                if (_biometriaDisponivel)
+                if (_biometriaDisponivel) ...[
                   SwitchListTile(
                     title: const Text('Usar biometria'),
-                    subtitle: const Text(
-                      'Use sua digital ou reconhecimento facial para fazer login',
+                    subtitle: Text(
+                      _statusBiometria,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                      ),
                     ),
+                    secondary: const Icon(Icons.fingerprint),
                     value: _biometriaHabilitada,
-                    onChanged: _toggleBiometria,
-                  )
-                else
+                    onChanged: _carregando 
+                        ? null 
+                        : _toggleBiometria,
+                  ),
+                  if (_carregando)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
+                      child: LinearProgressIndicator(),
+                    ),
+                ] else
                   ListTile(
                     title: const Text('Biometria não disponível'),
-                    subtitle: const Text(
-                      'Seu dispositivo não suporta autenticação biométrica',
+                    subtitle: Text(
+                      _statusBiometria,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
-                    leading: const Icon(Icons.fingerprint_outlined),
+                    leading: Icon(
+                      Icons.fingerprint_outlined,
+                      color: Theme.of(context).colorScheme.error.withOpacity(0.7),
+                    ),
                   ),
                 const Divider(),
               ],

@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/supabase_config.dart';
 
 import 'services/auth_service.dart';
-import 'services/security_checker_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/app_state_manager.dart';
 import 'screens/home_screen.dart';
@@ -29,12 +30,21 @@ class MyNavigatorObserver extends NavigatorObserver {
   }
 }
 
-void main() async {
+Future<void> main() async {
+  // Configuração de logging
+  Logger.root.level = Level.ALL; // Nível mais baixo para capturar todos os logs
+  Logger.root.onRecord.listen((record) {
+    debugPrint('${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
+    if (record.error != null) {
+      debugPrint('Erro: ${record.error}');
+    }
+    if (record.stackTrace != null) {
+      debugPrint('Stack trace: ${record.stackTrace}');
+    }
+  });
+
+  // Inicializa o binding do Flutter
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Habilita logs detalhados
-  // Configuração de debugPrint já está feita pelo Flutter
-  // Não é necessário sobrescrever
 
   // Inicializa serviços
   final connectivityService = ConnectivityService();
@@ -48,76 +58,23 @@ void main() async {
     debugPrint('Aviso: flutter_secure não está disponível para depuração');
   }
 
-  // Inicializa o Supabase
-  await Supabase.initialize(
-    url: 'https://okprgkawjuqtuhqtqknj.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rcHJna2F3anVxdHVocXRxa25qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1MTQxNzgsImV4cCI6MjA2MzA5MDE3OH0.Fm6Lg-pxvnlUu8X_k0q1wMIck_UMHvPrgpvCSqoVCss',
-  );
-
-  // Verifica ameaças de segurança
-  final securityChecker = SecurityCheckerService();
-  final securityResult = await securityChecker.checkSecurityThreats();
-
-  if (securityResult.hasThreats) {
-    runApp(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    size: 64,
-                    color: Colors.red,
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Atenção!',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Detectamos algumas ameaças de segurança no seu dispositivo:',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 16),
-                  ...securityResult.threatDescriptions.map(
-                    (threat) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        '• $threat',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Por motivos de segurança, o aplicativo não pode ser executado.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    return;
+  // Inicializa o Supabase usando a classe de configuração
+  try {
+    await SupabaseConfig.initialize();
+    debugPrint('Supabase inicializado com sucesso');
+  } catch (e, stackTrace) {
+    debugPrint('Erro ao inicializar Supabase: $e');
+    debugPrint('Stack trace: $stackTrace');
+    rethrow;
   }
 
-  runApp(const MyApp());
+  // Executa o aplicativo com tratamento de erros global
+  runZonedGuarded(
+    () => runApp(const MyApp()),
+    (error, stackTrace) {
+      Logger('main').severe('Erro não tratado', error, stackTrace);
+    },
+  );
 }
 
 class MyApp extends StatefulWidget {

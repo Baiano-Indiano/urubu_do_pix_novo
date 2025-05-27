@@ -1,16 +1,29 @@
 buildscript {
     ext.kotlin_version = '1.9.22'  // Atualizado para a versão mais recente
+    ext.agp_version = '8.2.2'  // Versão do Android Gradle Plugin
+    
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }
+        maven { url 'https://maven.google.com' }
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2'
+        classpath "com.android.tools.build:gradle:$agp_version"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         
         // Adiciona o plugin de serialização Kotlin
         classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
+        
+        // Adiciona o plugin do Google Services (se necessário para Firebase)
+        // classpath 'com.google.gms:google-services:4.4.1'
+        
+        // Adiciona o plugin do Crashlytics (se necessário)
+        // classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.9'
+        
+        // Adiciona o plugin do Performance Monitoring (se necessário)
+        // classpath 'com.google.firebase:perf-plugin:1.4.2'
     }
 }
 
@@ -18,16 +31,51 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }
+        maven { url 'https://maven.google.com' }
     }
     
     // Configurações globais para compilação Java e Kotlin
     tasks.withType(JavaCompile).configureEach {
         sourceCompatibility = JavaVersion.VERSION_17.toString()
         targetCompatibility = JavaVersion.VERSION_17.toString()
+        
+        // Configurações adicionais para compilação Java
+        options.encoding = 'UTF-8'
+        options.incremental = true
+        options.fork = true
+        options.forkOptions.executable = 'javac'
+        options.compilerArgs << '-Xlint:unchecked' << '-Xlint:deprecation'
     }
     
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions.jvmTarget = '17'
+        kotlinOptions {
+            jvmTarget = '17'
+            freeCompilerArgs += [
+                '-Xjvm-default=all',
+                '-opt-in=kotlin.RequiresOptIn',
+                '-Xcontext-receivers'
+            ]
+            languageVersion = '1.9'
+            apiVersion = '1.9'
+        }
+    }
+    
+    // Configurações para evitar conflitos de dependências
+    configurations.all {
+        resolutionStrategy {
+            // Forçar versões específicas de dependências conflitantes
+            force 'androidx.core:core-ktx:1.12.0'
+            force 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+            force 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+            
+            // Desabilitar o uso de versões não estáveis
+            failOnVersionConflict()
+            
+            // Atualização dinâmica de dependências
+            cacheDynamicVersionsFor 10, 'minutes'
+            cacheChangingModulesFor 0, 'seconds'
+        }
     }
 }
 

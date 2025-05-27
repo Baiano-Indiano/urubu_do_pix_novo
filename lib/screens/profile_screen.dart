@@ -21,38 +21,23 @@ class _TelefoneInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final text = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(text: '');
+    var text = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (text.length > 11) text = text.substring(0, 11);
+    String formatted = text;
+    
+    if (text.isNotEmpty) {
+      formatted = '(${text.substring(0, text.length > 2 ? 2 : text.length)}';
+      if (text.length > 2) {
+        formatted += ') ${text.substring(2, text.length > 7 ? 7 : text.length)}';
+        if (text.length > 7) {
+          formatted += '-${text.substring(7)}';
+        }
+      }
     }
-
-    if (text.length <= 2) {
-      return TextEditingValue(
-        text: '($text',
-        selection: TextSelection.collapsed(offset: text.length + 1),
-      );
-    }
-
-    if (text.length <= 7) {
-      return TextEditingValue(
-        text: '(${text.substring(0, 2)}) ${text.substring(2)}',
-        selection: TextSelection.collapsed(offset: text.length + 4),
-      );
-    }
-
-    if (text.length <= 11) {
-      return TextEditingValue(
-        text:
-            '(${text.substring(0, 2)}) ${text.substring(2, 7)}-${text.substring(7)}',
-        selection: TextSelection.collapsed(offset: text.length + 5),
-      );
-    }
-
+    
     return TextEditingValue(
-      text:
-          '(${text.substring(0, 2)}) ${text.substring(2, 7)}-${text.substring(7, 11)}',
-      selection: TextSelection.collapsed(offset: 16),
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
@@ -159,37 +144,91 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _telefoneController.dispose();
     super.dispose();
   }
+  
+  // Obtém o tema atual do aplicativo
+  ThemeMode _getCurrentThemeMode(BuildContext context) {
+    return context.read<AppStateManager>().themeMode;
+  }
+
+  // Exibe uma mensagem de erro em um SnackBar
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  // Exibe uma mensagem de sucesso em um SnackBar
+  void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // Obtém uma mensagem de erro amigável
+  String _getErrorMessage(dynamic error) {
+    if (error is ApiException) {
+      return error.message;
+    }
+    return 'Ocorreu um erro inesperado. Tente novamente mais tarde.';
+  }
 
   Future<void> _pickAndUploadPhoto() async {
     final picker = ImagePicker();
-    final picked =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    
     if (picked == null) return;
     final userId = ApiService().usuarioAtual;
-    if (userId == null) return;
+    if (userId == null) {
+      _showErrorSnackBar('Usuário não autenticado');
+      return;
+    }
+    
     final file = File(picked.path);
     setState(() => _isLoading = true);
+    
     try {
       final url = await ApiService().uploadProfilePhoto(file, userId);
       if (url != null) {
         await ApiService().updateProfilePhotoUrl(userId, url);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('profile_foto_url', url);
-        setState(() {
-          _fotoUrl = url;
-        });
+        
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('Foto atualizada!')));
+          setState(() {
+            _fotoUrl = url;
+          });
+          _showSuccessSnackBar('Foto atualizada com sucesso!');
         }
+      } else {
+        _showErrorSnackBar('Não foi possível fazer upload da foto');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erro ao enviar foto: $e')));
-      }
+      _showErrorSnackBar('Erro ao enviar foto: ${_getErrorMessage(e)}');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -453,16 +492,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Text('Tema Escuro'),
                               ],
                             ),
-                            Consumer<AppStateManager>(
-                              builder: (context, appState, child) {
-                                return Switch(
-                                  value: appState.themeMode == ThemeMode.dark,
-                                  onChanged: (bool value) {
-                                    appState.setThemeMode(
-                                      value ? ThemeMode.dark : ThemeMode.light,
-                                    );
-                                  },
-                                );
+                            DropdownButton<ThemeMode>(
+                              value: _getCurrentThemeMode(context),
+                              underline: const SizedBox(),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: ThemeMode.system,
+                                  child: Text('Sistema'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ThemeMode.light,
+                                  child: Text('Claro'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ThemeMode.dark,
+                                  child: Text('Escuro'),
+                                ),
+                              ],
+                              onChanged: (mode) {
+                                if (mode != null) {
+                                  final appState = context.read<AppStateManager>();
+                                  appState.setThemeMode(mode);
+                                }
                               },
                             ),
                           ],

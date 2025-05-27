@@ -274,20 +274,33 @@ class ApiService {
     bool isPessoaFisica = true,
   }) async {
     try {
+      debugPrint('Iniciando registro com identificador: $identificador');
+      
       // Remove formatação do CPF
       final cleanCpf = cpf.replaceAll(RegExp(r'[^0-9]'), '');
+      debugPrint('CPF formatado: $cleanCpf');
       
       // Formata o email
       final email = identificador.contains('@')
-          ? identificador
+          ? identificador.trim()
           : '$cleanCpf@urubupix.com';
+      debugPrint('Email a ser usado: $email');
 
-      // Verifica se o CPF já está cadastrado
-      final cpfExists = await checkIfDocumentExists(cleanCpf);
-      if (cpfExists) {
-        throw AuthException('CPF já cadastrado');
+      // Se for cadastro por CPF/CNPJ, verifica se já existe
+      if (!identificador.contains('@')) {
+        debugPrint('Verificando se CPF/CNPJ já existe...');
+        final cpfExists = await checkIfDocumentExists(cleanCpf);
+        if (cpfExists) {
+          debugPrint('CPF/CNPJ já cadastrado: $cleanCpf');
+          throw AuthException('CPF/CNPJ já cadastrado');
+        }
+        debugPrint('CPF/CNPJ disponível para cadastro');
+      } else {
+        debugPrint('Iniciando cadastro por email...');
       }
 
+      debugPrint('Criando usuário no Supabase Auth...');
+      
       // Cria o usuário no Auth com os metadados
       final authResponse = await _supabase.auth.signUp(
         email: email,
@@ -300,12 +313,19 @@ class ApiService {
         },
       );
       
+      debugPrint('Resposta do signUp: ${authResponse.toString()}');
+      
       // Cria uma nova conta para o usuário com saldo inicial zero
       if (authResponse.user != null) {
+        debugPrint('Criando conta para o usuário...');
         await _supabase.from('accounts').insert({
           'user_id': authResponse.user!.id,
           'balance': 0.0,
         });
+        debugPrint('Conta criada com sucesso');
+      } else {
+        debugPrint('Erro: authResponse.user é nulo');
+        throw AuthException('Erro ao criar o usuário');
       }
 
       return authResponse.user != null;

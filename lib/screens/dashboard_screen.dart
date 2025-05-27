@@ -10,14 +10,22 @@ import 'package:urubu_do_pix_novo/utils/csv_utils.dart';
 import 'package:urubu_do_pix_novo/utils/pdf_utils.dart';
 import 'dashboard_content.dart';
 
+/// Tela principal do dashboard que exibe um resumo financeiro e histórico de transações
+/// 
+/// [saldo] Saldo atual da conta
+/// [historico] Lista de transações históricas (opcional)
 class DashboardScreen extends StatefulWidget {
   final double saldo;
   final List<Map<String, dynamic>> historico;
-  DashboardScreen(
-      {super.key, required this.saldo, List<Map<String, dynamic>>? historico})
-      : historico = historico ?? [];
+  
+  DashboardScreen({
+    super.key, 
+    required this.saldo, 
+    List<Map<String, dynamic>>? historico
+  }) : historico = historico ?? [];
 
   @override
+  // ignore: no_logic_in_create_state
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
@@ -117,23 +125,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Método de checagem de saldo e notificação
   Future<void> checarSaldoENotificar() async {
-    if (widget.saldo < 100) {
-      const AndroidNotificationDetails androidDetails =
-          AndroidNotificationDetails(
-        'saldo_baixo',
-        'Saldo Baixo',
-        channelDescription: 'Notificações de saldo baixo',
-        importance: Importance.max,
-        priority: Priority.high,
-      );
-      const NotificationDetails notificationDetails =
-          NotificationDetails(android: androidDetails);
-      await notificationsPlugin.show(
-        0,
-        'Atenção: Saldo Baixo',
-        'Seu saldo está abaixo de R\$ 100,00. Considere realizar um depósito.',
-        notificationDetails,
-      );
+    try {
+      if (widget.saldo < 100) {
+        const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+          'saldo_baixo',
+          'Saldo Baixo',
+          channelDescription: 'Notificações de saldo baixo',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
+        const NotificationDetails notificationDetails = NotificationDetails(
+          android: androidDetails,
+        );
+        
+        await notificationsPlugin.show(
+          0,
+          'Atenção: Saldo Baixo',
+          'Seu saldo está abaixo de R\$ 100,00. Considere realizar um depósito.',
+          notificationDetails,
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao exibir notificação de saldo baixo: $e');
+      // Não propaga o erro, pois não é crítico para o funcionamento do app
     }
   }
 
@@ -172,21 +186,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  /// Retorna o histórico filtrado com base nos filtros ativos
   List<Map<String, dynamic>> get _historicoFiltrado {
     return widget.historico.where((item) {
       // Filtro por destinatário
-      if (_filtroDestinatario.isNotEmpty &&
-          !(item['destinatario']?.toString() ?? '')
-              .toLowerCase()
-              .contains(_filtroDestinatario.toLowerCase())) {
-        return false;
+      final dynamic destinatario = item['destinatario'];
+      if (_filtroDestinatario.isNotEmpty) {
+        final String nomeDestinatario = 
+            (destinatario?.toString() ?? '').toLowerCase();
+        if (!nomeDestinatario.contains(_filtroDestinatario.toLowerCase())) {
+          return false;
+        }
       }
+      
       // Filtro por tipo
       if (_filtroTipo != 'Todos' && item['tipo'] != _filtroTipo) {
         return false;
       }
+      
       // Filtro por data
-      final data = item['data'] is DateTime ? item['data'] as DateTime : null;
+      final dynamic dataItem = item['data'];
+      DateTime? data;
+      
+      if (dataItem is DateTime) {
+        data = dataItem;
+      } else if (dataItem is String) {
+        data = DateTime.tryParse(dataItem);
+      }
+      
       if (data != null) {
         if (_filtroDataInicio != null && data.isBefore(_filtroDataInicio!)) {
           return false;
@@ -195,8 +222,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return false;
         }
       }
+      
       // Filtro por valor
-      final valor = (item['valor'] as num?)?.toDouble();
+      final dynamic valorItem = item['valor'];
+      final double? valor = valorItem is num ? valorItem.toDouble() : null;
+      
       if (valor != null) {
         if (_filtroValorMin != null && valor < _filtroValorMin!) {
           return false;
@@ -205,6 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return false;
         }
       }
+      
       return true;
     }).toList();
   }
@@ -293,12 +324,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Calcula o total enviado de forma segura, tratando valores nulos
+  double get totalEnviado => widget.historico.fold(0.0, (sum, item) {
+        final valor = (item['valor'] as num?)?.toDouble() ?? 0.0;
+        return sum + (valor.isNegative ? 0.0 : valor); // Garante que valores negativos não afetem o total
+      });
+
+  /// Retorna a quantidade de transferências
+  int get qtdTransf => widget.historico.length;
+
   @override
   Widget build(BuildContext context) {
-    final totalEnviado =
-        widget.historico.fold(0.0, (sum, item) => sum + (item['valor'] ?? 0.0));
-    final qtdTransf = widget.historico.length;
+    // Obtém o histórico filtrado com base nos filtros ativos
     final historicoFiltrado = _historicoFiltrado;
+    
+    // Atualiza o número de itens exibidos para o tamanho do histórico filtrado
+    // mas não excede o limite de itens por página
+    _itensExibidos = _itensExibidos.clamp(0, historicoFiltrado.length);
 
     return Scaffold(
       appBar: AppBar(
@@ -428,23 +470,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Retorna os valores totais por mês (últimos 6 meses)
+  /// 
+  /// O índice 0 representa o mês mais antigo e o índice 5 o mês mais recente
   List<double> get valoresPorMes {
     final now = DateTime.now();
-    List<double> valores = List.filled(6, 0);
-    for (var item in widget.historico) {
+    final valores = List<double>.filled(6, 0.0);
+    
+    for (final item in widget.historico) {
+      // Extrai a data de forma segura
+      final dynamic dataItem = item['data'];
       DateTime? data;
-      if (item['data'] is DateTime) {
-        data = item['data'] as DateTime;
-      } else if (item['data'] is String) {
-        data = DateTime.tryParse(item['data']);
+      
+      if (dataItem is DateTime) {
+        data = dataItem;
+      } else if (dataItem is String) {
+        data = DateTime.tryParse(dataItem);
       }
+      
       if (data == null) continue;
-      double valor = (item['valor'] as num?)?.toDouble() ?? 0.0;
-      int diff = (now.year - data.year) * 12 + (now.month - data.month);
+      
+      // Extrai o valor de forma segura
+      final dynamic valorItem = item['valor'];
+      final double valor = (valorItem is num ? valorItem.toDouble() : 0.0).abs();
+      
+      // Calcula a diferença em meses
+      final diff = (now.year - data.year) * 12 + (now.month - data.month);
+      
+      // Se a diferença estiver dentro dos últimos 6 meses
       if (diff >= 0 && diff < 6) {
         valores[5 - diff] += valor;
       }
     }
+    
     return valores;
   }
 

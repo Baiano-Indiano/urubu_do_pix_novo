@@ -330,33 +330,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       if (!mounted) return;
-      if (!context.mounted) return;
-
-      // Mostra mensagem de erro detalhada
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-      if (!context.mounted) return;
-      scaffoldMessenger.showSnackBar(SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Erro ao processar o cadastro:'),
-            const SizedBox(height: 4),
-            Text(e.toString(), style: const TextStyle(fontSize: 12)),
-          ],
-        ),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 5),
-      ));
-
+      
+      String errorMessage = 'Erro ao processar o cadastro. Tente novamente.';
+      
+      // Tratamento de erros específicos
+      if (e.toString().contains('email already in use') ||
+          e.toString().contains('E-mail já cadastrado')) {
+        errorMessage = 'Este e-mail já está cadastrado.';
+        _emailError = 'E-mail já está em uso';
+      } else if (e.toString().contains('CPF/CNPJ já cadastrado')) {
+        errorMessage = 'Este CPF/CNPJ já está cadastrado.';
+        _emailError = 'CPF/CNPJ já cadastrado';
+      } else if (e.toString().contains('invalid email')) {
+        errorMessage = 'O e-mail informado é inválido.';
+        _emailError = 'E-mail inválido';
+      } else if (e.toString().contains('password')) {
+        errorMessage = 'A senha não atende aos requisitos mínimos.';
+        _senhaError = 'Senha inválida';
+      }
+      
+      if (context.mounted) {
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                scaffoldMessenger.hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+      }
+      
       setState(() {
-        if (_cadastroPorCpf) {
-          _emailError = _isPessoaFisica
-              ? 'Este CPF já está cadastrado ou é inválido.'
-              : 'Este CNPJ já está cadastrado ou é inválido.';
-        } else {
-          _emailError = 'Este e-mail já está cadastrado.';
-        }
+        _isLoading = false;
       });
     } finally {
       if (mounted) {
