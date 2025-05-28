@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -201,37 +202,116 @@ class ApiService {
   }
 
   // Verifica se um CPF/CNPJ já está cadastrado
-  Future<bool> checkIfDocumentExists(String document,
-      {bool isCpf = true}) async {
+  Future<bool> checkIfDocumentExists(String document, {bool isCpf = true}) async {
+    debugPrint('Verificando se o documento já existe: $document');
+    
     try {
+      if (document.isEmpty) {
+        debugPrint('Documento vazio fornecido');
+        return false;
+      }
+      
       final cleanDoc = document.replaceAll(RegExp(r'[^0-9]'), '');
+      debugPrint('Documento formatado: $cleanDoc');
+      
+      if (cleanDoc.isEmpty) {
+        debugPrint('Documento inválido após formatação');
+        return false;
+      }
+      
+      debugPrint('Buscando usuário com CPF/CNPJ: $cleanDoc');
+      
+      debugPrint('Buscando usuário com CPF/CNPJ: $cleanDoc');
+      
       final response = await _supabase
           .from('users')
-          .select('user_id')
+          .select('user_id, email')
           .eq('cpf', cleanDoc)
           .maybeSingle();
-
-      return response != null;
-    } catch (e) {
-      logDebug('Erro ao verificar documento: $e');
-      return false;
+      
+      final exists = response != null && response['user_id'] != null;
+      debugPrint('Documento ${exists ? 'encontrado' : 'não encontrado'}: $cleanDoc');
+      
+      if (exists) {
+        debugPrint('Usuário existente - ID: ${response['user_id']}, Email: ${response['email']}');
+      }
+      
+      return exists;
+      
+    } on PostgrestException catch (e) {
+      // Trata erros específicos do Supabase
+      debugPrint('Erro ao verificar documento no banco de dados: ${e.message}');
+      debugPrint('Detalhes: ${e.details}');
+      debugPrint('Hint: ${e.hint}');
+      
+      // Se for um erro de "nenhum resultado", retorna false
+      if (e.message.contains('No data found') || e.message.contains('0 rows')) {
+        debugPrint('Nenhum usuário encontrado com o documento fornecido');
+        return false;
+      }
+      
+      // Para outros erros, relança a exceção
+      rethrow;
+      
+    } catch (e, stackTrace) {
+      debugPrint('Erro inesperado ao verificar documento: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
     }
   }
 
   // Busca usuário por CPF/CNPJ
   Future<Map<String, dynamic>?> findUserByDocument(String document) async {
+    debugPrint('Buscando usuário por documento: $document');
+    
     try {
+      if (document.isEmpty) {
+        debugPrint('Documento vazio fornecido');
+        return null;
+      }
+      
       final cleanDoc = document.replaceAll(RegExp(r'[^0-9]'), '');
+      debugPrint('Documento formatado: $cleanDoc');
+      
+      if (cleanDoc.isEmpty) {
+        debugPrint('Documento inválido após formatação');
+        return null;
+      }
+      
+      debugPrint('Buscando usuário com CPF/CNPJ: $cleanDoc');
+      
       final response = await _supabase
           .from('users')
-          .select()
+          .select('*')
           .eq('cpf', cleanDoc)
           .maybeSingle();
-
+      
+      if (response != null) {
+        debugPrint('Usuário encontrado: ${response['email'] ?? 'Sem e-mail'}');
+      } else {
+        debugPrint('Nenhum usuário encontrado com o documento: $cleanDoc');
+      }
+      
       return response;
-    } catch (e) {
-      logDebug('Erro ao buscar usuário por documento: $e');
-      return null;
+      
+    } on PostgrestException catch (e) {
+      debugPrint('Erro ao buscar usuário no banco de dados: ${e.message}');
+      debugPrint('Detalhes: ${e.details}');
+      debugPrint('Hint: ${e.hint}');
+      
+      // Se for um erro de "nenhum resultado", retorna null
+      if (e.message.contains('No data found') || e.message.contains('0 rows')) {
+        debugPrint('Nenhum usuário encontrado com o documento fornecido');
+        return null;
+      }
+      
+      // Para outros erros, relança a exceção
+      rethrow;
+      
+    } catch (e, stackTrace) {
+      debugPrint('Erro inesperado ao buscar usuário por documento: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
     }
   }
 
@@ -266,75 +346,96 @@ class ApiService {
   }
 
   Future<bool> register(
-    String identificador,
+    String email,
     String senha, {
     required String nome,
-    required String cpf,
     required String telefone,
-    bool isPessoaFisica = true,
+    required String cpf,
   }) async {
     try {
-      debugPrint('Iniciando registro com identificador: $identificador');
+      debugPrint('=== INÍCIO DO REGISTRO ===');
+      debugPrint('E-mail: $email');
+      debugPrint('Nome: $nome');
+      debugPrint('Telefone: $telefone');
+      debugPrint('CPF: $cpf');
       
-      // Remove formatação do CPF
-      final cleanCpf = cpf.replaceAll(RegExp(r'[^0-9]'), '');
-      debugPrint('CPF formatado: $cleanCpf');
-      
-      // Formata o email
-      final email = identificador.contains('@')
-          ? identificador.trim()
-          : '$cleanCpf@urubupix.com';
-      debugPrint('Email a ser usado: $email');
+      // Garante que o e-mail está em minúsculas e sem espaços
+      final emailFormatado = email.trim().toLowerCase();
+      debugPrint('E-mail formatado: $emailFormatado');
 
-      // Se for cadastro por CPF/CNPJ, verifica se já existe
-      if (!identificador.contains('@')) {
-        debugPrint('Verificando se CPF/CNPJ já existe...');
-        final cpfExists = await checkIfDocumentExists(cleanCpf);
-        if (cpfExists) {
-          debugPrint('CPF/CNPJ já cadastrado: $cleanCpf');
-          throw AuthException('CPF/CNPJ já cadastrado');
+      // Verifica se o e-mail já está cadastrado
+      debugPrint('Verificando se o e-mail já está cadastrado...');
+      try {
+        final emailExists = await _supabase
+            .from('users')
+            .select('email')
+            .eq('email', emailFormatado)
+            .maybeSingle();
+            
+        if (emailExists != null) {
+          debugPrint('❌ E-mail já cadastrado: $emailFormatado');
+          throw AuthException('Já existe um usuário cadastrado com este e-mail');
         }
-        debugPrint('CPF/CNPJ disponível para cadastro');
-      } else {
-        debugPrint('Iniciando cadastro por email...');
+        debugPrint('✅ E-mail disponível para cadastro');
+      } catch (e) {
+        debugPrint('⚠️ Erro ao verificar e-mail: $e');
+        // Se for um erro de "nenhum resultado", continua normalmente
+        if (!e.toString().contains('No data found')) {
+          rethrow;
+        }
+        debugPrint('✅ E-mail disponível (erro de "nenhum resultado" esperado)');
       }
 
       debugPrint('Criando usuário no Supabase Auth...');
       
-      // Cria o usuário no Auth com os metadados
-      final authResponse = await _supabase.auth.signUp(
-        email: email,
-        password: senha,
-        data: {
-          'nome': nome,
-          'cpf': cleanCpf,
-          'telefone': telefone,
-          'tipo_pessoa': isPessoaFisica ? 'fisica' : 'juridica',
-        },
-      );
-      
-      debugPrint('Resposta do signUp: ${authResponse.toString()}');
-      
-      // Cria uma nova conta para o usuário com saldo inicial zero
-      if (authResponse.user != null) {
-        debugPrint('Criando conta para o usuário...');
-        await _supabase.from('accounts').insert({
-          'user_id': authResponse.user!.id,
-          'balance': 0.0,
-        });
-        debugPrint('Conta criada com sucesso');
-      } else {
-        debugPrint('Erro: authResponse.user é nulo');
-        throw AuthException('Erro ao criar o usuário');
-      }
+      try {
+        // Verifica se o CPF já está cadastrado
+        debugPrint('Verificando se o CPF já está cadastrado...');
+        final cpfExists = await checkIfDocumentExists(cpf);
+        if (cpfExists) {
+          debugPrint('❌ CPF já cadastrado: $cpf');
+          throw AuthException('Já existe um usuário cadastrado com este CPF');
+        }
+        debugPrint('✅ CPF disponível para cadastro');
 
-      return authResponse.user != null;
+        // Cria o usuário no Auth com os metadados
+        final authResponse = await _supabase.auth.signUp(
+          email: emailFormatado,
+          password: senha,
+          data: {
+            'nome': nome,
+            'telefone': telefone,
+            'cpf': cpf,
+            'email_verified': true, // Para evitar necessidade de confirmação de e-mail
+          },
+        );
+        
+        debugPrint('Resposta do signUp: ${authResponse.toString()}');
+        
+        if (authResponse.user == null) {
+          debugPrint('❌ Erro: authResponse.user é nulo');
+          throw AuthException('Erro ao criar o usuário. Tente novamente.');
+        }
+
+        debugPrint('✅ Usuário criado com sucesso!');
+        debugPrint('ID do usuário: ${authResponse.user!.id}');
+        return true;
+      } on AuthException catch (e) {
+        debugPrint('❌ Erro de autenticação ao registrar: ${e.message}');
+        rethrow;
+      } catch (e) {
+        debugPrint('❌ Erro inesperado ao criar usuário: $e');
+        throw AuthException('Não foi possível completar o cadastro. Tente novamente.');
+      }
     } on AuthException catch (e) {
-      logDebug('Erro de autenticação ao registrar: ${e.message}');
+      debugPrint('❌ Erro de autenticação: ${e.message}');
       rethrow;
-    } catch (e) {
-      logDebug('Erro ao registrar usuário: $e');
-      rethrow;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Erro inesperado: $e');
+      debugPrint('Stack trace: $stackTrace');
+      throw AuthException('Ocorreu um erro inesperado. Por favor, tente novamente.');
+    } finally {
+      debugPrint('=== FIM DO PROCESSO DE REGISTRO ===');
     }
   }
 

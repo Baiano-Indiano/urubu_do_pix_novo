@@ -12,36 +12,28 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   // Controladores para os campos de texto
-  final TextEditingController _identificadorController =
-      TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
-  final TextEditingController _confirmarSenhaController =
-      TextEditingController();
-  final TextEditingController _cpfController = TextEditingController();
-  final TextEditingController _telefoneController = TextEditingController();
+  final TextEditingController _confirmarSenhaController = TextEditingController();
   final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _telefoneController = TextEditingController();
+  final TextEditingController _cpfController = TextEditingController();
 
-  // Formatadores para campos com máscara
-  final maskCpf = MaskTextInputFormatter(
-      mask: '###.###.###-##', filter: {"#": RegExp(r'[0-9]')});
-  final maskCnpj = MaskTextInputFormatter(
-      mask: '##.###.###/####-##', filter: {"#": RegExp(r'[0-9]')});
+  // Formatadores para campos
   final maskPhone = MaskTextInputFormatter(
       mask: '(##) #####-####',
+      filter: {"#": RegExp(r'[0-9]')},
+      type: MaskAutoCompletionType.lazy);
+      
+  final maskCpf = MaskTextInputFormatter(
+      mask: '###.###.###-##',
       filter: {"#": RegExp(r'[0-9]')},
       type: MaskAutoCompletionType.lazy);
 
   // Variáveis de estado
   String? _errorMessage;
-  String? _cpfError,
-      _telefoneError,
-      _nomeError,
-      _emailError,
-      _senhaError,
-      _confirmarSenhaError;
+  String? _telefoneError, _nomeError, _emailError, _senhaError, _confirmarSenhaError, _cpfError;
   bool _isLoading = false;
-  bool _cadastroPorCpf = true;
-  bool _isPessoaFisica = true;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _aceitouTermos = false;
@@ -53,55 +45,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     // Adiciona listeners para validação em tempo real
-    _identificadorController.addListener(_validateIdentificador);
+    _emailController.addListener(_validateEmail);
     _senhaController.addListener(_validateSenha);
     _confirmarSenhaController.addListener(_validateConfirmarSenha);
     _nomeController.addListener(_validateNome);
-    _cpfController.addListener(_validateCpf);
     _telefoneController.addListener(_validateTelefone);
+    _cpfController.addListener(_validateCpf);
   }
 
   @override
   void dispose() {
     // Libera recursos
-    _identificadorController.dispose();
+    _emailController.dispose();
     _senhaController.dispose();
     _confirmarSenhaController.dispose();
-    _cpfController.dispose();
-    _telefoneController.dispose();
     _nomeController.dispose();
+    _telefoneController.dispose();
+    _cpfController.dispose();
     super.dispose();
   }
 
-  // Validações em tempo real
-  void _validateIdentificador() {
+  // Validação de e-mail em tempo real
+  void _validateEmail() {
     setState(() {
-      if (_identificadorController.text.isEmpty) {
+      if (_emailController.text.isEmpty) {
         _emailError = null;
         return;
       }
 
-      final text = _identificadorController.text.trim();
-      if (_cadastroPorCpf) {
-        if (_isPessoaFisica) {
-          if (!isValidCPF(text)) {
-            _emailError = 'CPF inválido';
-          } else {
-            _emailError = null;
-          }
-        } else {
-          if (!isValidCNPJ(text)) {
-            _emailError = 'CNPJ inválido';
-          } else {
-            _emailError = null;
-          }
-        }
+      final text = _emailController.text.trim();
+      if (!isValidEmail(text)) {
+        _emailError = 'E-mail inválido';
       } else {
-        if (!isValidEmail(text)) {
-          _emailError = 'E-mail inválido';
-        } else {
-          _emailError = null;
-        }
+        _emailError = null;
       }
     });
   }
@@ -157,21 +133,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  void _validateCpf() {
-    setState(() {
-      if (_cpfController.text.isEmpty) {
-        _cpfError = null;
-        return;
-      }
-
-      if (!isValidCPF(_cpfController.text)) {
-        _cpfError = 'CPF inválido';
-      } else {
-        _cpfError = null;
-      }
-    });
-  }
-
   void _validateTelefone() {
     setState(() {
       if (_telefoneController.text.isEmpty) {
@@ -198,21 +159,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     });
   }
+  
+  void _validateCpf() {
+    setState(() {
+      if (_cpfController.text.isEmpty) {
+        _cpfError = null;
+        return;
+      }
+      
+      final cpf = _cpfController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      
+      if (cpf.length != 11) {
+        _cpfError = 'CPF deve ter 11 dígitos';
+      } else if (!isValidCPF(cpf)) {
+        _cpfError = 'CPF inválido';
+      } else {
+        _cpfError = null;
+      }
+    });
+  }
 
   void _register() async {
     // Valida todos os campos antes de enviar
-    _validateIdentificador();
+    _validateEmail();
     _validateNome();
-    _validateCpf();
     _validateTelefone();
+    _validateCpf();
     _validateSenha();
     _validateConfirmarSenha();
 
     // Verifica se há erros de validação
     if (_emailError != null ||
         _nomeError != null ||
-        _cpfError != null ||
         _telefoneError != null ||
+        _cpfError != null ||
         _senhaError != null ||
         _confirmarSenhaError != null ||
         !_aceitouTermos) {
@@ -225,11 +205,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final identificador = _identificadorController.text.trim();
+    final email = _emailController.text.trim();
     final senha = _senhaController.text;
-    final cpf = _cpfController.text.trim();
     final telefone = _telefoneController.text.trim();
     final nome = _nomeController.text.trim();
+    final cpf = _cpfController.text.replaceAll(RegExp(r'[^0-9]'), '');
 
     setState(() {
       _isLoading = true;
@@ -259,14 +239,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       // Realiza o cadastro
-      final success = await ApiService().register(
-        identificador,
-        senha,
-        nome: nome,
-        cpf: cpf,
-        telefone: telefone,
-        isPessoaFisica: _isPessoaFisica,
-      );
+      debugPrint('Iniciando cadastro com os seguintes dados:');
+      debugPrint('E-mail: $email');
+      debugPrint('Nome: $nome');
+      debugPrint('Telefone: $telefone');
+      
+      bool success = false;
+      try {
+        success = await ApiService().register(
+          email,
+          senha,
+          nome: nome,
+          telefone: telefone,
+          cpf: cpf,
+        );
+      } catch (e, stackTrace) {
+        debugPrint('Erro durante o cadastro: $e');
+        debugPrint('Stack trace: $stackTrace');
+        rethrow;
+      }
 
       // Fecha o diálogo de progresso
       if (mounted && context.mounted && Navigator.of(context).canPop()) {
@@ -309,11 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
         // Mostra mensagem de erro
         scaffoldMessenger.showSnackBar(SnackBar(
-          content: Text(_cadastroPorCpf
-              ? (_isPessoaFisica
-                  ? 'Este CPF já está cadastrado.'
-                  : 'Este CNPJ já está cadastrado.')
-              : 'Este e-mail já está cadastrado.'),
+          content: Text('Este e-mail já está cadastrado.'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
@@ -333,20 +320,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
       
       String errorMessage = 'Erro ao processar o cadastro. Tente novamente.';
       
+      // Log do erro completo para depuração
+      debugPrint('Erro capturado: ${e.toString()}');
+      
+      // Log do erro completo para depuração
+      final errorMessageStr = e.toString();
+      final errorMessageLower = errorMessageStr.toLowerCase();
+      debugPrint('Erro capturado: $errorMessageStr');
+      
       // Tratamento de erros específicos
-      if (e.toString().contains('email already in use') ||
-          e.toString().contains('E-mail já cadastrado')) {
+      if (errorMessageLower.contains('já existe um usuário cadastrado') ||
+          errorMessageLower.contains('email already in use') ||
+          errorMessageLower.contains('user already registered') ||
+          errorMessageLower.contains('e-mail já cadastrado') ||
+          errorMessageLower.contains('email já está em uso')) {
         errorMessage = 'Este e-mail já está cadastrado.';
         _emailError = 'E-mail já está em uso';
-      } else if (e.toString().contains('CPF/CNPJ já cadastrado')) {
-        errorMessage = 'Este CPF/CNPJ já está cadastrado.';
-        _emailError = 'CPF/CNPJ já cadastrado';
-      } else if (e.toString().contains('invalid email')) {
-        errorMessage = 'O e-mail informado é inválido.';
-        _emailError = 'E-mail inválido';
-      } else if (e.toString().contains('password')) {
+        debugPrint('Erro de e-mail duplicado tratado');
+      } else if (errorMessageLower.contains('email') || 
+                errorMessageLower.contains('e-mail') ||
+                errorMessageLower.contains('usuário') ||
+                errorMessageLower.contains('user')) {
+        errorMessage = 'Erro ao processar o cadastro. Verifique os dados e tente novamente.';
+        _emailError = 'Erro no e-mail';
+        debugPrint('Erro relacionado a e-mail detectado');
+      } else if (errorMessageLower.contains('password') ||
+                errorMessageLower.contains('senha')) {
         errorMessage = 'A senha não atende aos requisitos mínimos.';
         _senhaError = 'Senha inválida';
+        debugPrint('Erro de senha detectado');
+      } else {
+        errorMessage = 'Erro ao processar o cadastro. Tente novamente.';
+        debugPrint('Mensagem de erro genérica: $errorMessageStr');
+      }
+      
+      // Atualiza a interface para mostrar a mensagem de erro
+      if (mounted) {
+        setState(() {
+          // Força a atualização da UI
+        });
       }
       
       if (context.mounted) {
@@ -413,163 +425,125 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Tipo de cadastro
-                  const Text('Tipo de cadastro:',
+                  // Campo de e-mail
+                  const Text('E-mail',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ChoiceChip(
-                          label: const Text('CPF/CNPJ'),
-                          selected: _cadastroPorCpf,
-                          onSelected: (v) {
-                            setState(() {
-                              _cadastroPorCpf = true;
-                              _identificadorController.clear();
-                              _emailError = null;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ChoiceChip(
-                          label: const Text('E-mail'),
-                          selected: !_cadastroPorCpf,
-                          onSelected: (v) {
-                            setState(() {
-                              _cadastroPorCpf = false;
-                              _identificadorController.clear();
-                              _emailError = null;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Tipo de pessoa (apenas se for CPF/CNPJ)
-                  if (_cadastroPorCpf) ...[
-                    const SizedBox(height: 16),
-                    const Text('Tipo de pessoa:',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Text('Pessoa Física'),
-                            selected: _isPessoaFisica,
-                            onSelected: (v) {
-                              setState(() {
-                                _isPessoaFisica = true;
-                                _identificadorController.clear();
-                                _emailError = null;
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Text('Pessoa Jurídica'),
-                            selected: !_isPessoaFisica,
-                            onSelected: (v) {
-                              setState(() {
-                                _isPessoaFisica = false;
-                                _identificadorController.clear();
-                                _emailError = null;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  // Campo de identificador (CPF/CNPJ ou E-mail)
-                  TextField(
-                    controller: _identificadorController,
-                    inputFormatters: _cadastroPorCpf
-                        ? [_isPessoaFisica ? maskCpf : maskCnpj]
-                        : null,
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: _cadastroPorCpf
-                          ? (_isPessoaFisica ? 'CPF' : 'CNPJ')
-                          : 'E-mail',
-                      prefixIcon: Icon(_cadastroPorCpf
-                          ? Icons.badge_outlined
-                          : Icons.email_outlined),
-                      border: const OutlineInputBorder(),
+                      hintText: 'Digite seu e-mail',
+                      prefixIcon: const Icon(Icons.email_outlined),
                       errorText: _emailError,
-                      hintText: _cadastroPorCpf
-                          ? (_isPessoaFisica
-                              ? '000.000.000-00'
-                              : '00.000.000/0000-00')
-                          : 'seu.email@exemplo.com',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    keyboardType: _cadastroPorCpf
-                        ? TextInputType.number
-                        : TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
+                    onChanged: (_) {
+                      setState(() {
+                        _errorMessage = null;
+                      });
+                    },
                   ),
+                  if (_emailError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+                      child: Text(
+                        _emailError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
                   const SizedBox(height: 16),
 
                   // Nome completo
-                  TextField(
+                  const Text('Nome completo',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextFormField(
                     controller: _nomeController,
                     decoration: InputDecoration(
-                      labelText: 'Nome completo',
-                      prefixIcon: const Icon(Icons.person_outline),
-                      border: const OutlineInputBorder(),
-                      errorText: _nomeError,
                       hintText: 'Digite seu nome completo',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      errorText: _nomeError,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.next,
                   ),
-                  const SizedBox(height: 16),
-
-                  // CPF
-                  TextField(
-                    controller: _cpfController,
-                    inputFormatters: [maskCpf],
-                    decoration: InputDecoration(
-                      labelText: 'CPF',
-                      prefixIcon: const Icon(Icons.credit_card_outlined),
-                      border: const OutlineInputBorder(),
-                      errorText: _cpfError,
-                      hintText: '000.000.000-00',
+                  if (_nomeError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+                      child: Text(
+                        _nomeError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
                     ),
-                    keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.next,
-                  ),
                   const SizedBox(height: 16),
 
                   // Telefone
-                  TextField(
+                  const Text('Telefone',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextFormField(
                     controller: _telefoneController,
                     inputFormatters: [maskPhone],
                     decoration: InputDecoration(
-                      labelText: 'Telefone',
-                      prefixIcon: const Icon(Icons.phone_outlined),
-                      border: const OutlineInputBorder(),
-                      errorText: _telefoneError,
                       hintText: '(00) 00000-0000',
+                      prefixIcon: const Icon(Icons.phone_outlined),
+                      errorText: _telefoneError,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
                   ),
+                  if (_telefoneError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+                      child: Text(
+                        _telefoneError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  
+                  // CPF
+                  const Text('CPF',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _cpfController,
+                    inputFormatters: [maskCpf],
+                    decoration: InputDecoration(
+                      hintText: '000.000.000-00',
+                      prefixIcon: const Icon(Icons.credit_card_outlined),
+                      errorText: _cpfError,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  if (_cpfError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+                      child: Text(
+                        _cpfError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
                   const SizedBox(height: 16),
 
                   // Senha
-                  TextField(
+                  const Text('Senha',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextFormField(
                     controller: _senhaController,
                     decoration: InputDecoration(
-                      labelText: 'Senha',
+                      hintText: 'Crie uma senha forte',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -583,27 +557,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
                       errorText: _senhaError,
-                      hintText: 'Crie uma senha forte',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.next,
                   ),
-                  if (_senhaError == null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'A senha deve conter letras maiúsculas, minúsculas, números e símbolos',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  if (_senhaError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+                      child: Text(
+                        _senhaError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
                     ),
-                  ],
                   const SizedBox(height: 16),
 
                   // Confirmar senha
-                  TextField(
+                  const Text('Confirmar senha',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextFormField(
                     controller: _confirmarSenhaController,
                     decoration: InputDecoration(
-                      labelText: 'Confirmar senha',
+                      hintText: 'Digite a senha novamente',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -617,13 +595,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           });
                         },
                       ),
-                      border: const OutlineInputBorder(),
                       errorText: _confirmarSenhaError,
-                      hintText: 'Digite a senha novamente',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     obscureText: _obscureConfirmPassword,
-                    textInputAction: TextInputAction.done,
                   ),
+                  if (_confirmarSenhaError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+                      child: Text(
+                        _confirmarSenhaError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ),
                   const SizedBox(height: 24),
 
                   // Termos e condições

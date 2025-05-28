@@ -35,20 +35,23 @@ class AccountService {
       }
       
       // Se chegou aqui, a conta não existe ou não pôde ser acessada
-      debugPrint('Conta não encontrada para o usuário $userId. Criando nova conta...');
+      debugPrint('Conta não encontrada para o usuário $userId. Verificando se o usuário existe...');
       
       try {
-        await _supabase.from('accounts').insert({
-          'user_id': userId,
-          'balance': 0.0,
-        });
-        debugPrint('✅ Nova conta criada para o usuário $userId');
+        // Verifica se o usuário existe na tabela users
+        await _supabase
+            .from('users')
+            .select()
+            .eq('user_id', userId)
+            .single();
+            
+        debugPrint('✅ Usuário encontrado na tabela users, a conta será criada pelo trigger');
       } on PostgrestException catch (e) {
-        // Se der erro de chave duplicada, ignora (a conta já existe)
-        if (e.code != '23505') {
-          rethrow;
+        if (e.code == 'PGRST116') {
+          debugPrint('⚠️ Usuário não encontrado na tabela users');
+          throw Exception('Usuário não encontrado no sistema');
         }
-        debugPrint('✅ Conta já existe (erro de chave duplicada)');
+        rethrow;
       }
     } catch (e) {
       debugPrint('❌ Erro ao verificar/criar conta: $e');

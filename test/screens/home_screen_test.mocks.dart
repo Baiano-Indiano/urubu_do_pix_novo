@@ -207,25 +207,21 @@ class MockApiService extends _i1.Mock implements _i2.ApiService {
 
   @override
   _i3.Future<bool> register(
-    String? identificador,
-    String? senha, {
-    required String? nome,
-    required String? cpf,
-    required String? telefone,
-    bool? isPessoaFisica = true,
+    String email,
+    String senha, {
+    required String nome,
+    required String telefone,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
           #register,
           [
-            identificador,
+            email,
             senha,
           ],
           {
             #nome: nome,
-            #cpf: cpf,
             #telefone: telefone,
-            #isPessoaFisica: isPessoaFisica,
           },
         ),
         returnValue: _i3.Future<bool>.value(false),
@@ -269,13 +265,11 @@ class MockAuthService extends _i1.Mock implements _i5.AuthService {
       ) as bool);
 
   @override
-  _i3.Future<bool> register({
-    required String? email,
-    required String? password,
-    required String? nome,
-    required String? cpf,
-    required String? telefone,
-    bool? isPessoaFisica = true,
+  _i3.Future<void> register({
+    required String email,
+    required String password,
+    required String nome,
+    required String telefone,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -285,13 +279,12 @@ class MockAuthService extends _i1.Mock implements _i5.AuthService {
             #email: email,
             #password: password,
             #nome: nome,
-            #cpf: cpf,
             #telefone: telefone,
-            #isPessoaFisica: isPessoaFisica,
           },
         ),
-        returnValue: _i3.Future<bool>.value(false),
-      ) as _i3.Future<bool>);
+        returnValue: _i3.Future<void>.value(),
+        returnValueForMissingStub: _i3.Future<void>.value(),
+      ) as _i3.Future<void>);
 
   @override
   _i3.Future<bool> signIn(
