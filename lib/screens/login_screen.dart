@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/biometric_service.dart';
 import '../services/api_service.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 import '../routes/custom_route.dart';
@@ -17,27 +16,71 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _biometricService = BiometricService();
   bool _biometriaDisponivel = false;
-  final TextEditingController _identificadorController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _senhaController = TextEditingController();
-  final maskCpf = MaskTextInputFormatter(
-    mask: '###.###.###-##',
-    filter: {"#": RegExp(r'[0-9]')},
-  );
   bool _isLoading = false;
-  bool _loginPorCpf = true;
   bool _obscurePassword = true;
+  String? _emailError;
+  String? _senhaError;
 
   @override
   void initState() {
     super.initState();
     _verificarBiometria();
+    
+    // Adiciona listeners para validação em tempo real
+    _emailController.addListener(_validateEmail);
+    _senhaController.addListener(_validateSenha);
   }
 
   @override
   void dispose() {
-    _identificadorController.dispose();
+    _emailController.removeListener(_validateEmail);
+    _senhaController.removeListener(_validateSenha);
+    _emailController.dispose();
     _senhaController.dispose();
     super.dispose();
+  }
+  
+  // Verifica se o formulário está válido
+  bool get _isFormValid {
+    return _emailController.text.isNotEmpty &&
+           _emailError == null &&
+           _senhaController.text.isNotEmpty &&
+           _senhaError == null;
+  }
+  
+  // Valida o campo de e-mail
+  void _validateEmail() {
+    setState(() {
+      final email = _emailController.text.trim();
+      if (email.isEmpty) {
+        _emailError = null;
+        return;
+      }
+      
+      if (!isValidEmail(email)) {
+        _emailError = 'E-mail inválido';
+      } else {
+        _emailError = null;
+      }
+    });
+  }
+  
+  // Valida o campo de senha
+  void _validateSenha() {
+    setState(() {
+      if (_senhaController.text.isEmpty) {
+        _senhaError = null;
+        return;
+      }
+      
+      if (_senhaController.text.length < 4) {
+        _senhaError = 'A senha deve ter no mínimo 4 caracteres';
+      } else {
+        _senhaError = null;
+      }
+    });
   }
 
   Future<void> _verificarBiometria() async {
@@ -57,59 +100,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Remove o método _validarCredenciais antigo, pois não é mais necessário
-
   Future<void> _login() async {
-    if (_isLoading) return;
+    if (_isLoading || !_isFormValid) return;
     
-    // Validações
-    final identificador = _identificadorController.text.trim();
+    // Força a validação dos campos
+    _validateEmail();
+    _validateSenha();
+    
+    // Verifica se ainda há erros após a validação
+    if (_emailError != null || _senhaError != null) {
+      return;
+    }
+    
+    final email = _emailController.text.trim();
     final senha = _senhaController.text;
-    
-    // Validação do identificador (CPF ou E-mail)
-    if (identificador.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, informe seu CPF ou E-mail')),
-      );
-      return;
-    }
-    
-    if (_loginPorCpf) {
-      if (!isValidCPF(identificador)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CPF inválido. Por favor, verifique os dados.')),
-        );
-        return;
-      }
-    } else {
-      if (!isValidEmail(identificador)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('E-mail inválido. Por favor, verifique os dados.')),
-        );
-        return;
-      }
-    }
-    
-    // Validação da senha
-    if (senha.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, informe sua senha')),
-      );
-      return;
-    }
-    
-    if (senha.length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A senha deve ter no mínimo 4 caracteres')),
-      );
-      return;
-    }
     
     setState(() => _isLoading = true);
 
     try {
       final apiService = ApiService();
-      final loginSucesso = await apiService.login(identificador, senha);
+      final loginSucesso = await apiService.login(email, senha);
       
       if (!mounted) return;
       
@@ -275,72 +285,54 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Toggle CPF/Email
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: theme.dividerColor,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildToggleButton(
-                                'CPF',
-                                _loginPorCpf,
-                                () => setState(() {
-                                  _loginPorCpf = true;
-                                  _identificadorController.clear();
-                                }),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildToggleButton(
-                                'E-mail',
-                                !_loginPorCpf,
-                                () => setState(() {
-                                  _loginPorCpf = false;
-                                  _identificadorController.clear();
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Campo de CPF/E-mail
+                      // Campo de E-mail
                       TextFormField(
-                        controller: _identificadorController,
-                        keyboardType: _loginPorCpf ? TextInputType.number : TextInputType.emailAddress,
-                        inputFormatters: _loginPorCpf ? [maskCpf] : null,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        onChanged: (_) => _validateEmail(),
                         decoration: InputDecoration(
-                          labelText: _loginPorCpf ? 'CPF' : 'E-mail',
+                          labelText: 'E-mail',
                           prefixIcon: Icon(
-                            _loginPorCpf ? Icons.badge : Icons.email,
+                            Icons.email,
                             color: colorScheme.primary,
                           ),
+                          errorText: _emailError,
+                          errorStyle: const TextStyle(fontSize: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: colorScheme.primary.withValues(alpha: 0.5 * 255),
+                              color: _emailError != null 
+                                  ? Colors.red 
+                                  : colorScheme.primary.withOpacity(0.5),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: colorScheme.primary,
+                              color: _emailError != null 
+                                  ? Colors.red 
+                                  : colorScheme.primary,
                               width: 2,
                             ),
                           ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.red,
+                              width: 1.5,
+                            ),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.red,
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -349,12 +341,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _senhaController,
                         obscureText: _obscurePassword,
+                        onChanged: (_) => _validateSenha(),
                         decoration: InputDecoration(
                           labelText: 'Senha',
                           prefixIcon: Icon(
                             Icons.lock,
                             color: colorScheme.primary,
                           ),
+                          errorText: _senhaError,
+                          errorStyle: const TextStyle(fontSize: 12),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword ? Icons.visibility : Icons.visibility_off,
@@ -368,16 +363,33 @@ class _LoginScreenState extends State<LoginScreen> {
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: colorScheme.primary.withValues(alpha: 0.5 * 255),
+                              color: _senhaError != null 
+                                  ? Colors.red 
+                                  : colorScheme.primary.withValues(alpha: 0.5 * 255),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: colorScheme.primary,
+                              color: _senhaError != null ? Colors.red : colorScheme.primary,
                               width: 2,
                             ),
                           ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.red,
+                              width: 1.5,
+                            ),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.red,
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -386,9 +398,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       SizedBox(
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : _login,
+                          onPressed: (_isLoading || !_isFormValid) ? null : _login,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
+                            backgroundColor: _isFormValid && !_isLoading 
+                                ? colorScheme.primary 
+                                : Colors.grey[400],
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -402,10 +416,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text(
+                              : Text(
                                   'Entrar',
                                   style: TextStyle(
                                     fontSize: 16,
+                                    color: _isFormValid ? Colors.white : Colors.grey[600],
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -456,7 +471,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: colorScheme.primary.withValues(alpha: 0.1 * 255),
+                          color: colorScheme.primary.withOpacity(0.1),
                         ),
                         padding: const EdgeInsets.all(16),
                         child: IconButton(
@@ -481,36 +496,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToggleButton(String text, bool isSelected, VoidCallback onTap) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? colorScheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? colorScheme.primary : theme.dividerColor,
-            width: 1.5,
-          ),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            fontSize: 15,
           ),
         ),
       ),

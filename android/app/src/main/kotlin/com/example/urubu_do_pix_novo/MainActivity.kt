@@ -4,34 +4,19 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.view.WindowManager.LayoutParams
-import android.content.pm.PackageManager
 import android.view.View
 import android.view.WindowManager
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.webkit.WebSettings
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebResourceError
-import android.webkit.ValueCallback
 import android.webkit.CookieManager
-import android.webkit.WebChromeClient
-import android.net.http.SslError
-import android.webkit.SslErrorHandler
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
-import androidx.annotation.RequiresApi
-import androidx.core.content.ContextCompat
-import androidx.core.app.ActivityCompat
 import android.content.pm.PackageManager
 import android.Manifest
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
+import android.webkit.WebSettings
+import android.content.Context
+import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
+import androidx.annotation.RequiresApi
 
 class MainActivity: FlutterActivity() {
     private val SECURE_CHANNEL = "flutter_secure"
@@ -66,7 +51,6 @@ class MainActivity: FlutterActivity() {
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
         webSettings.databaseEnabled = true
-        webSettings.setAppCacheEnabled(true)
         webSettings.cacheMode = WebSettings.LOAD_DEFAULT
         webSettings.loadWithOverviewMode = true
         webSettings.useWideViewPort = true
@@ -78,9 +62,6 @@ class MainActivity: FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             webSettings.safeBrowsingEnabled = true
         }
-        
-        // Configuração de cache
-        webSettings.setAppCachePath(cacheDir.absolutePath)
         
         // Configuração de cookies
         val cookieManager = CookieManager.getInstance()

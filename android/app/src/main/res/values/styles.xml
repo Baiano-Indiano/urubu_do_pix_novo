@@ -37,8 +37,8 @@
         <item name="android:navigationBarColor">@color/navigationBar</item>
         
         <!-- Estilos de fonte -->
-        <item name="android:fontFamily">@font/roboto</item>
-        <item name="fontFamily">@font/roboto</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="fontFamily">sans-serif</item>
         
         <!-- Estilos de borda -->
         <item name="android:windowContentOverlay">@null</item>

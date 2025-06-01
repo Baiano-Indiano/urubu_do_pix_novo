@@ -41,16 +41,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Chave do formulário para validação
   final _formKey = GlobalKey<FormState>();
 
+  // Verifica se todos os campos obrigatórios foram preenchidos corretamente
+  bool get _isFormValid {
+    return _emailController.text.isNotEmpty &&
+           _emailError == null &&
+           _senhaController.text.isNotEmpty &&
+           _senhaError == null &&
+           _confirmarSenhaController.text.isNotEmpty &&
+           _confirmarSenhaError == null &&
+           _nomeController.text.isNotEmpty &&
+           _nomeError == null &&
+           _telefoneController.text.isNotEmpty &&
+           _telefoneError == null &&
+           _cpfController.text.isNotEmpty &&
+           _cpfError == null &&
+           _aceitouTermos;
+  }
+
   @override
   void initState() {
     super.initState();
     // Adiciona listeners para validação em tempo real
-    _emailController.addListener(_validateEmail);
-    _senhaController.addListener(_validateSenha);
-    _confirmarSenhaController.addListener(_validateConfirmarSenha);
-    _nomeController.addListener(_validateNome);
-    _telefoneController.addListener(_validateTelefone);
-    _cpfController.addListener(_validateCpf);
+    _emailController.addListener(() {
+      _validateEmail();
+      setState(() {}); // Força a reconstrução para atualizar o estado do botão
+    });
+    _senhaController.addListener(() {
+      _validateSenha();
+      setState(() {});
+    });
+    _confirmarSenhaController.addListener(() {
+      _validateConfirmarSenha();
+      setState(() {});
+    });
+    _nomeController.addListener(() {
+      _validateNome();
+      setState(() {});
+    });
+    _telefoneController.addListener(() {
+      _validateTelefone();
+      setState(() {});
+    });
+    _cpfController.addListener(() {
+      _validateCpf();
+      setState(() {});
+    });
   }
 
   @override
@@ -436,6 +471,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Digite seu e-mail',
                       prefixIcon: const Icon(Icons.email_outlined),
                       errorText: _emailError,
+                      errorStyle: const TextStyle(fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -446,14 +482,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       });
                     },
                   ),
-                  if (_emailError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
-                      child: Text(
-                        _emailError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
                   const SizedBox(height: 16),
 
                   // Nome completo
@@ -466,20 +494,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: 'Digite seu nome completo',
                       prefixIcon: const Icon(Icons.person_outline),
                       errorText: _nomeError,
+                      errorStyle: const TextStyle(fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     textCapitalization: TextCapitalization.words,
                   ),
-                  if (_nomeError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
-                      child: Text(
-                        _nomeError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
                   const SizedBox(height: 16),
 
                   // Telefone
@@ -493,20 +514,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: '(00) 00000-0000',
                       prefixIcon: const Icon(Icons.phone_outlined),
                       errorText: _telefoneError,
+                      errorStyle: const TextStyle(fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     keyboardType: TextInputType.phone,
                   ),
-                  if (_telefoneError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
-                      child: Text(
-                        _telefoneError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
                   const SizedBox(height: 16),
                   
                   // CPF
@@ -520,20 +534,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       hintText: '000.000.000-00',
                       prefixIcon: const Icon(Icons.credit_card_outlined),
                       errorText: _cpfError,
+                      errorStyle: const TextStyle(fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     keyboardType: TextInputType.number,
                   ),
-                  if (_cpfError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
-                      child: Text(
-                        _cpfError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
                   const SizedBox(height: 16),
 
                   // Senha
@@ -558,20 +565,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                       errorText: _senhaError,
+                      errorStyle: const TextStyle(fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     obscureText: _obscurePassword,
                   ),
-                  if (_senhaError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
-                      child: Text(
-                        _senhaError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
                   const SizedBox(height: 16),
 
                   // Confirmar senha
@@ -596,20 +596,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                       errorText: _confirmarSenhaError,
+                      errorStyle: const TextStyle(fontSize: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     obscureText: _obscureConfirmPassword,
+                    onChanged: (_) {
+                      setState(() {
+                        _errorMessage = null;
+                      });
+                    },
                   ),
-                  if (_confirmarSenhaError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0, left: 8.0),
-                      child: Text(
-                        _confirmarSenhaError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    ),
                   const SizedBox(height: 24),
 
                   // Termos e condições
@@ -687,11 +685,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _register,
+                      onPressed: (_isLoading || !_isFormValid) ? null : _register,
                       style: ElevatedButton.styleFrom(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        backgroundColor: _isFormValid && !_isLoading 
+                            ? Theme.of(context).primaryColor 
+                            : Colors.grey[400],
                       ),
                       child: _isLoading
                           ? const SizedBox(
@@ -699,8 +700,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: 24,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
-                          : const Text('CRIAR CONTA',
-                              style: TextStyle(fontSize: 16)),
+                          : Text(
+                              'CRIAR CONTA',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: _isFormValid ? Colors.white : Colors.grey[600],
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
